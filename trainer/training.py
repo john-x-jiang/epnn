@@ -183,7 +183,7 @@ def train_epoch(model, epoch, loss, optimizer, data_loaders, hparams):
             if r2 is None:
                 r2 = 0
             
-            physics_vars, statistic_vars = model(source, data_name)
+            physics_vars, statistic_vars = model(source, data_name, label[:, 2:])
             if loss_type == 'dmm_loss':
                 x_q, x_p = physics_vars
                 mu_q, logvar_q, mu_p, logvar_p = statistic_vars

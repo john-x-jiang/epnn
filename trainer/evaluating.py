@@ -45,6 +45,8 @@ def evaluate_epoch(model, data_loaders, metrics, exp_dir, hparams, data_tag, sig
                 x = signal[:, :-torso_len]
                 y = signal[:, -torso_len:]
 
+                # if 971 in label:
+                #     import ipdb; ipdb.set_trace()
                 if signal_source == 'heart':
                     source = x
                 elif signal_source == 'torso':
