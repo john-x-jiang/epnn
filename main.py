@@ -30,7 +30,8 @@ def parse_args():
     parser.add_argument('--seed', type=int, default=123, help='random seed')
     parser.add_argument('--stage', type=int, default=1, help='1.Training, 2. Testing')
     parser.add_argument('--checkpt', type=str, default='None', help='checkpoint to resume training from')
-    parser.add_argument('--tag', type=str, default='test', help='dataset')
+    parser.add_argument('--eval', type=str, default='test', help='dataset')
+    parser.add_argument('--pred', type=str, default='test', help='dataset')
 
     args = parser.parse_args()
     return args
@@ -176,27 +177,59 @@ def evaluate(hparams, test_loaders, exp_dir, data_tag):
     evaluating.evaluate_driver(model, test_loaders, metrics, hparams, exp_dir, data_tag)
 
 
-def main(hparams, checkpt, training=True, data_tag='test'):
+def personalize(hparams, eval_data_loaders, pred_data_loaders, exp_dir, eval_tag, pred_tag):
+    # models
+    model_info = dict(hparams.model)
+    model = getattr(model_arch, model_info['type'])(**model_info['args'])
+
+    # setup parameters for each patient
+    graph_method = hparams.data['graph_method']
+    data_dir = os.path.join(osp.dirname(osp.realpath('__file__')), hparams.data['data_dir'])
+    batch_size = hparams.batch_size
+    ecgi = hparams.ecgi
+    for data_name in hparams.data['data_names']:
+        model.setup(data_name, data_dir, batch_size, ecgi, graph_method)
+
+    model.to(device)
+    checkpt = torch.load(exp_dir + '/' + hparams.best_model, map_location=device)
+    model.load_state_dict(checkpt['state_dict'])
+
+    # metrics
+    metrics = [getattr(model_metric, met) for met in hparams.metrics]
+    
+    # evaluate model
+    evaluating.personalize_driver(model, eval_data_loaders, pred_data_loaders, 
+                                  metrics, hparams, exp_dir, eval_tag, pred_tag)
+
+
+def main(hparams, checkpt, stage, evaluation='test', prediction=None):
     # directory path to save the model/results
     exp_dir = osp.join(osp.dirname(osp.realpath('__file__')),
                          'experiments', hparams.exp_name, hparams.exp_id)
     os.makedirs(exp_dir, exist_ok=True)
 
-    if training:
+    if stage == 1:
         copy2(json_path, exp_dir)
         # copy model to exp_dir
 
         # load data
-        train_loaders, valid_loaders = data_loading(hparams, training)
+        train_loaders, valid_loaders = data_loading(hparams, training=True)
 
         # start training
         train(hparams, checkpt, train_loaders, valid_loaders, exp_dir)
-    else:
+    elif stage == 2:
         # load data
-        data_loaders = data_loading(hparams, training, data_tag)
+        data_loaders = data_loading(hparams, training=False, data_tag=evaluation)
 
         # start testing
-        evaluate(hparams, data_loaders, exp_dir, data_tag)
+        evaluate(hparams, data_loaders, exp_dir, evaluation)
+    elif stage == 3:
+        # load data
+        eval_data_loaders = data_loading(hparams, training=False, data_tag=evaluation)
+        pred_data_loaders = data_loading(hparams, training=False, data_tag=prediction)
+
+        # start personalization
+        personalize(hparams, eval_data_loaders, pred_data_loaders, exp_dir, evaluation, prediction)
 
 
 def make_graph(hparams):
@@ -211,8 +244,8 @@ def make_graph(hparams):
     for data_name, num_mesh in zip(data_names, num_meshes):
         print(data_name)
         root_dir = os.path.join(data_dir, 'signal/{}'.format(data_name))
-        structure_name = data_name.split('_')
-        g = mesh2graph.GraphPyramid(data_name, data_name, num_mesh, seq_len, graph_method)
+        structure_name = data_name.split('_')[0]
+        g = mesh2graph.GraphPyramid(data_name, structure_name, num_mesh, seq_len, graph_method)
         g.make_graph()
 
 
@@ -249,13 +282,18 @@ if __name__ == '__main__':
     
     if args.stage == 1:
         print('Stage 1: begin training ...')
-        main(hparams, checkpt, training=True)
+        main(hparams, checkpt, stage=args.stage)
         print('Training completed!')
         print('--------------------------------------')
     elif args.stage == 2:
         print('Stage 2: begin evaluating ...')
-        main(hparams, checkpt, training=False, data_tag=args.tag)
+        main(hparams, checkpt, stage=args.stage, evaluation=args.eval)
         print('Evaluating completed!')
+        print('--------------------------------------')
+    elif args.stage == 3:
+        print('Stage 3: begin personalization ...')
+        main(hparams, checkpt, stage=args.stage, evaluation=args.eval, prediction=args.pred)
+        print('Personalization completed!')
         print('--------------------------------------')
     elif args.stage == 0:
         print('Stage 0: begin making graphs ...')

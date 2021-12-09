@@ -13,27 +13,43 @@ def kl_div(mu1, var1, mu2=None, var2=None):
     if var2 is None:
         var2 = torch.zeros_like(mu1)
 
-    return 0.5 * (
-        var2.log() - var1.log() + (
-            var1 + (mu1 - mu2).pow(2)
-        ) / var2 - 1)
     # return 0.5 * (
-    #     var2 - var1 + (
-    #         torch.exp(var1) + (mu1 - mu2).pow(2)
-    #     ) / torch.exp(var2) - 1)
+    #     var2.log() - var1.log() + (
+    #         var1 + (mu1 - mu2).pow(2)
+    #     ) / var2 - 1)
+    return 0.5 * (
+        var2 - var1 + (
+            torch.exp(var1) + (mu1 - mu2).pow(2)
+        ) / torch.exp(var2) - 1)
+
+
+def recon_loss(x_, x):
+    B, T = x.shape[0], x.shape[-1]
+    nll_raw_0 = mse_loss(x_[:, :, 0], x[:, :, 0], 'none')
+    nll_raw = mse_loss(x_[:, :, 1:], x[:, :, 1:], 'none')
+
+    nll_m_0 = nll_raw_0.sum() / B
+    nll_m = nll_raw.sum() / (B * (T - 1))
+
+    total = nll_m_0 + nll_m
+    return total
 
 
 def dmm_loss(x, x_q, x_p, mu1, var1, mu2, var2, kl_annealing_factor=1, r1=1, r2=0):
-    kl_raw = kl_div(mu1, var1, mu2, var2)
-    kl_raw, kl_raw_D = kl_raw[:, :, :, :-1], kl_raw[:, :, :, -1]
     B, T = x.shape[0], x.shape[-1]
     nll_raw_q = mse_loss(x_q, x[:, :, :T], 'none')
     nll_raw_p = mse_loss(x_p, x[:, :, :T], 'none')
-
-    kl_m = kl_raw.sum() / B
-    kl_m_D = kl_raw_D.sum() / B
     nll_m_q = nll_raw_q.sum() / B
     nll_m_p = nll_raw_p.sum() / B
+
+    if mu1 is not None:
+        kl_raw = kl_div(mu1, var1, mu2, var2)
+        kl_raw, kl_raw_D = kl_raw[:, :, :, :-1], kl_raw[:, :, :, -1]
+        kl_m = kl_raw.sum() / B
+        kl_m_D = kl_raw_D.sum() / B
+    else:
+        kl_m = torch.zeros_like(x).sum() / B
+        kl_m_D = torch.zeros_like(x).sum() / B
 
     loss = (kl_m + kl_m_D) * kl_annealing_factor + r1 * nll_m_q + r2 * nll_m_p
 
