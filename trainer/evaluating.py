@@ -197,9 +197,9 @@ def personalize_epoch(model, eval_data_loaders, pred_data_loaders, metrics, exp_
                     eval_source = eval_y
 
                 if k_shot is None:
-                    physics_vars, statistic_vars = model(source, data_name, label)
+                    physics_vars, statistic_vars = model.personalization(source, eval_source, data_name, label, eval_label)
                 else:
-                    D = data.D
+                    D = eval_data.D
                     D = D.to(device)
                     N, M, T = signal.shape
                     D = D.view(N, -1, M ,T)
@@ -210,7 +210,7 @@ def personalize_epoch(model, eval_data_loaders, pred_data_loaders, metrics, exp_
                         D_source = D_x
                     elif signal_source == 'torso':
                         D_source = D_y
-                    physics_vars, statistic_vars = model(source, data_name, label, D_source)
+                    physics_vars, statistic_vars = model.personalization(source, eval_source, data_name, label, eval_label, D_source)
                 
                 if loss_type == 'dmm_loss':
                     x_q, x_p = physics_vars
