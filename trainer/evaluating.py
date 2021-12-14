@@ -24,6 +24,7 @@ def evaluate_epoch(model, data_loaders, metrics, exp_dir, hparams, data_tag, eva
     torso_len = eval_config['torso_len']
     signal_source = eval_config['signal_source']
     omit = eval_config['omit']
+    k_shot = eval_config.get('k_shot')
     model.eval()
     n_steps = 0
     mses = {}
@@ -54,8 +55,22 @@ def evaluate_epoch(model, data_loaders, metrics, exp_dir, hparams, data_tag, eva
                 elif signal_source == 'torso':
                     source = y
 
-                physics_vars, _ = model(source, data_name, label)
-                # physics_vars, statistic_vars = model(source, data_name, label)
+                if k_shot is None:
+                    physics_vars, statistic_vars = model(source, data_name, label)
+                else:
+                    D = data.D
+                    D = D.to(device)
+                    N, M, T = signal.shape
+                    D = D.view(N, -1, M ,T)
+                    D_x = D[:, :, :-torso_len, omit:]
+                    D_y = D[:, :, -torso_len:, omit:]
+
+                    if signal_source == 'heart':
+                        D_source = D_x
+                    elif signal_source == 'torso':
+                        D_source = D_y
+                    physics_vars, statistic_vars = model(source, data_name, label, D_source)
+                
                 if loss_type == 'dmm_loss':
                     x_q, x_p = physics_vars
                     x_ = x_p
@@ -63,6 +78,8 @@ def evaluate_epoch(model, data_loaders, metrics, exp_dir, hparams, data_tag, eva
                     x_, _ = physics_vars
 
                     # z_D, z_0, _, _ = statistic_vars
+                elif loss_type == 'domain_recon_loss':
+                    x_, _ = physics_vars
                 else:
                     raise NotImplemented
 
@@ -130,6 +147,7 @@ def personalize_epoch(model, eval_data_loaders, pred_data_loaders, metrics, exp_
     torso_len = eval_config['torso_len']
     signal_source = eval_config['signal_source']
     omit = eval_config['omit']
+    k_shot = eval_config.get('k_shot')
     model.eval()
     n_steps = 0
     mses = {}
@@ -178,8 +196,22 @@ def personalize_epoch(model, eval_data_loaders, pred_data_loaders, metrics, exp_
                     source = y
                     eval_source = eval_y
 
-                physics_vars, _ = model.personalization(source, eval_source, data_name, label, eval_label)
-                # physics_vars, statistic_vars = model.personalization(source, eval_source, data_name, label, eval_label)
+                if k_shot is None:
+                    physics_vars, statistic_vars = model(source, data_name, label)
+                else:
+                    D = data.D
+                    D = D.to(device)
+                    N, M, T = signal.shape
+                    D = D.view(N, -1, M ,T)
+                    D_x = D[:, :, :-torso_len, omit:]
+                    D_y = D[:, :, -torso_len:, omit:]
+
+                    if signal_source == 'heart':
+                        D_source = D_x
+                    elif signal_source == 'torso':
+                        D_source = D_y
+                    physics_vars, statistic_vars = model(source, data_name, label, D_source)
+                
                 if loss_type == 'dmm_loss':
                     x_q, x_p = physics_vars
                     x_ = x_p
@@ -187,6 +219,8 @@ def personalize_epoch(model, eval_data_loaders, pred_data_loaders, metrics, exp_
                     x_, _ = physics_vars
 
                     # z_D, z_0, _, _ = statistic_vars
+                elif loss_type == 'domain_recon_loss':
+                    x_, _ = physics_vars
                 else:
                     raise NotImplemented
 

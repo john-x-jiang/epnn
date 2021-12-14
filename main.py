@@ -46,6 +46,7 @@ def data_loading(hparams, training=True, data_tag='test'):
     signal_type = data_config['signal_type']
     num_meshes = data_config['num_meshes']
     seq_len = data_config['seq_len']
+    k_shot = data_config.get('k_shot')
 
     if training:
         train_loaders, valid_loaders = {}, {}
@@ -65,7 +66,8 @@ def data_loading(hparams, training=True, data_tag='test'):
                 data_name=data_name,
                 signal_type=signal_type,
                 num_mesh=num_mesh,
-                seq_len=seq_len
+                seq_len=seq_len,
+                k_shot=k_shot
             )
 
             split_val = 'valid'
@@ -78,7 +80,8 @@ def data_loading(hparams, training=True, data_tag='test'):
                 data_name=data_name,
                 signal_type=signal_type,
                 num_mesh=num_mesh,
-                seq_len=seq_len
+                seq_len=seq_len,
+                k_shot=k_shot
             )
             train_loaders[data_name] = train_loader
             valid_loaders[data_name] = valid_loader
@@ -94,7 +97,8 @@ def data_loading(hparams, training=True, data_tag='test'):
                 data_name=data_name,
                 signal_type=signal_type,
                 num_mesh=num_mesh,
-                seq_len=seq_len
+                seq_len=seq_len,
+                k_shot=k_shot
             )
             test_loaders[data_name] = test_loader
 

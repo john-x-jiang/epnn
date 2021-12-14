@@ -581,123 +581,7 @@ class ConditionalDisentangledDynamics(BaseModel):
         return (x, None), (None, None, None, None)
 
 
-class CondDisentangledDynamics_1(BaseModel):
-    def __init__(self,
-                 num_channel,
-                 latent_dim,
-                 obs_dim,
-                 initial_dim,
-                 rnn_type):
-        super().__init__()
-        self.nf = num_channel
-        self.latent_dim = latent_dim
-        self.obs_dim = obs_dim
-        self.initial_dim = initial_dim
-        self.rnn_type = rnn_type
-
-        # encoder
-        self.signal_encoder = Encoder(num_channel, latent_dim, cond=True)
-        self.condition_encoder = Encoder(num_channel, latent_dim)
-
-        # Domain model
-        self.domain_seq = RnnEncoder(latent_dim, latent_dim,
-                                     dim=3,
-                                     kernel_size=3,
-                                     norm=False,
-                                     n_layer=1,
-                                     rnn_type=rnn_type,
-                                     bd=False,
-                                     reverse_input=False)
-        self.domain = Aggregator(latent_dim, latent_dim, obs_dim, stochastic=False)
-
-        # initialization
-        self.initial = nn.Linear(latent_dim, latent_dim)
-
-        self.propagation = Transition_1(latent_dim, latent_dim, stochastic=False)
-
-        # decoder
-        self.decoder = Decoder(num_channel, latent_dim)
-
-        self.bg = dict()
-        self.bg1 = dict()
-        self.bg2 = dict()
-        self.bg3 = dict()
-        self.bg4 = dict()
-
-    def setup(self, heart_name, data_path, batch_size, ecgi, graph_method):
-        params = get_params(data_path, heart_name, batch_size, ecgi, graph_method)
-        self.bg[heart_name] = params["bg"]
-        self.bg1[heart_name] = params["bg1"]
-        self.bg2[heart_name] = params["bg2"]
-        self.bg3[heart_name] = params["bg3"]
-        self.bg4[heart_name] = params["bg4"]
-        
-        self.signal_encoder.setup(heart_name, params)
-        self.condition_encoder.setup(heart_name, params)
-        self.decoder.setup(heart_name, params)
-    
-    def get_latent_domain(self, x, heart_name):
-        edge_index, edge_attr = self.bg4[heart_name].edge_index, self.bg4[heart_name].edge_attr
-        
-        # Domain
-        _x = self.domain_seq(x, edge_index, edge_attr)
-        z_D = self.domain(_x)
-
-        return z_D
-    
-    def get_latent_initial(self, y, heart_name):
-        z_init = self.condition_encoder(y, heart_name)
-        z_init = z_init.permute(0, 1, 3, 2).contiguous()
-        z_0 = self.initial(z_init)
-        z_0 = z_0.permute(0, 1, 3, 2).contiguous()
-        
-        return z_0
-    
-    def time_modeling(self, x, z_0, z_D):
-        N, V, C, T = x.shape
-
-        z_prev = z_0[:, :, :, 0]
-        z = []
-        for i in range(1, T):
-            z_t = self.propagation(z_prev, z_0[:, :, :, i], z_D)
-            z_prev = z_t
-            z_t = z_t.view(1, N, V, C)
-            z.append(z_t)
-        z = torch.cat(z, dim=0)
-        z0 = z_0[:, :, :, 0]
-        z0 = z0.view(1, N, V, C)
-        z = torch.cat([z0, z], dim=0)
-        z = z.permute(1, 2, 3, 0).contiguous()
-
-        return z
-
-    def forward(self, x, heart_name, label=None):
-        y = one_hot_label(label[:, 2] - 1, x)
-        z_s = self.signal_encoder(x, heart_name, y)
-        z_D = self.get_latent_domain(z_s, heart_name)
-
-        z_0 = self.get_latent_initial(y, heart_name)
-
-        z = self.time_modeling(z_s, z_0, z_D)
-        
-        x = self.decoder(z, heart_name)
-        return (x, None), (None, None, None, None)
-    
-    def personalization(self, x, eval_x, heart_name, label=None, eval_label=None):
-        y = one_hot_label(label[:, 2] - 1, x)
-        z_0 = self.get_latent_initial(y, heart_name)
-
-        eval_y = one_hot_label(eval_label[:, 2] - 1, eval_x)
-        z_s = self.signal_encoder(eval_x, heart_name, eval_y)
-        z_D = self.get_latent_domain(z_s, heart_name)
-        
-        z = self.time_modeling(z_s, z_0, z_D)
-
-        x = self.decoder(z, heart_name)
-        return (x, None), (None, None, None, None)
-
-
-class CondDisentangledDynamics_2(BaseModel):
+class DomainInvariantDynamics(BaseModel):
     def __init__(self,
                  num_channel,
                  latent_dim,
@@ -725,10 +609,16 @@ class CondDisentangledDynamics_2(BaseModel):
                                      bd=False,
                                      reverse_input=False)
         self.domain = Aggregator(latent_dim, latent_dim, obs_dim, stochastic=False)
+        self.mu_c = nn.Linear(latent_dim, latent_dim)
+        self.var_c = nn.Linear(latent_dim, latent_dim)
+        self.act_c = nn.Tanh()
 
         # initialization
-        self.initial = nn.Linear(latent_dim, latent_dim)
+        self.mu_z = nn.Linear(latent_dim, latent_dim)
+        self.var_z = nn.Linear(latent_dim, latent_dim)
+        self.act_z = nn.Tanh()
 
+        # time modeling
         self.propagation = Transition(latent_dim, latent_dim, stochastic=False)
 
         # decoder
@@ -752,28 +642,38 @@ class CondDisentangledDynamics_2(BaseModel):
         self.condition_encoder.setup(heart_name, params)
         self.decoder.setup(heart_name, params)
     
-    def get_latent_domain(self, x, heart_name):
+    def get_latent_domain(self, xs, heart_name):
         edge_index, edge_attr = self.bg4[heart_name].edge_index, self.bg4[heart_name].edge_attr
         
         # Domain
-        _x = self.domain_seq(x, edge_index, edge_attr)
-        z_D = self.domain(_x)
+        z_Ds = []
+        for x in xs:
+            _x = self.domain_seq(x, edge_index, edge_attr)
+            z_Ds.append(self.domain(_x))
 
-        return z_D
+        z_c = sum(z_Ds) / len(z_Ds)
+        mu_c = self.mu_c(z_c)
+        logvar_c = self.act_c(self.var_c(z_c))
+
+        return mu_c, logvar_c
     
     def get_latent_initial(self, y, heart_name):
-        z_init = self.condition_encoder(y, heart_name)
-        z_0 = self.initial(z_init[:, :, :, 0])
+        N, V, T = y.shape
+        y = y[:, :, 0].view(N, V, 1)
+        z_0 = self.condition_encoder(y, heart_name)
+        z_0 = torch.squeeze(z_0)
+        mu_z = self.mu_z(z_0)
+        logvar_z = self.act_z(self.var_z(z_0))
         
-        return z_0
+        return mu_z, logvar_z
     
-    def time_modeling(self, x, z_0, z_D):
+    def time_modeling(self, x, z_0, z_c):
         N, V, C, T = x.shape
 
         z_prev = z_0
         z = []
         for i in range(1, T):
-            z_t = self.propagation(z_prev, z_D)
+            z_t = self.propagation(z_prev, z_c)
             z_prev = z_t
             z_t = z_t.view(1, N, V, C)
             z.append(z_t)
@@ -783,245 +683,34 @@ class CondDisentangledDynamics_2(BaseModel):
         z = z.permute(1, 2, 3, 0).contiguous()
 
         return z
+    
+    def reparameterization(self, mu, logvar):
+        std = torch.exp(0.5 * logvar)
+        eps = torch.randn_like(std)
+        return mu + eps * std
 
-    def forward(self, x, heart_name, label=None):
+    def forward(self, x, heart_name, label=None, D=None):
+        # q(c | D)
+        z_x = self.signal_encoder(x, heart_name)
+        N, K, V, T = D.shape
+        z_Ds = []
+        for i in range(K):
+            Di = D[:, i, :, :].view(N, V, T)
+            z_Ds.append(self.signal_encoder(Di, heart_name))
+        z_Ds.append(z_x)
+        mu_c, logvar_c = self.get_latent_domain(z_Ds, heart_name)
+        z_c = self.reparameterization(mu_c, logvar_c)
+
+        # q(z)
         y = one_hot_label(label[:, 2] - 1, x)
-        z_s = self.signal_encoder(x, heart_name)
-        z_D = self.get_latent_domain(z_s, heart_name)
+        mu_z, logvar_z = self.get_latent_initial(y, heart_name)
+        z_0 = self.reparameterization(mu_z, logvar_z)
 
-        z_0 = self.get_latent_initial(y, heart_name)
-
-        z = self.time_modeling(z_s, z_0, z_D)
-        
+        # p(x | z, c)
+        z = self.time_modeling(z_x, z_0, z_c)
         x = self.decoder(z, heart_name)
-        return (x, None), (None, None, None, None)
-    
-    def personalization(self, x, eval_x, heart_name, label=None, eval_label=None):
-        y = one_hot_label(label[:, 2] - 1, x)
-        z_0 = self.get_latent_initial(y, heart_name)
-
-        eval_y = one_hot_label(eval_label[:, 2] - 1, eval_x)
-        z_s = self.signal_encoder(eval_x, heart_name)
-        z_D = self.get_latent_domain(z_s, heart_name)
         
-        z = self.time_modeling(z_s, z_0, z_D)
-
-        x = self.decoder(z, heart_name)
-        return (x, None), (None, None, None, None)
-
-
-class CondDisentangledDynamics_3(BaseModel):
-    def __init__(self,
-                 num_channel,
-                 latent_dim,
-                 obs_dim,
-                 initial_dim,
-                 rnn_type):
-        super().__init__()
-        self.nf = num_channel
-        self.latent_dim = latent_dim
-        self.obs_dim = obs_dim
-        self.initial_dim = initial_dim
-        self.rnn_type = rnn_type
-
-        # encoder
-        self.signal_encoder = Encoder(num_channel, latent_dim, cond=True)
-        self.condition_encoder = Encoder(num_channel, latent_dim)
-
-        # Domain model
-        self.domain_seq = RnnEncoder(latent_dim, latent_dim,
-                                     dim=3,
-                                     kernel_size=3,
-                                     norm=False,
-                                     n_layer=1,
-                                     rnn_type=rnn_type,
-                                     bd=False,
-                                     reverse_input=False)
-        self.domain = Aggregator(latent_dim, latent_dim, obs_dim, stochastic=False)
-
-        # initialization
-        self.initial = nn.Linear(latent_dim, latent_dim)
-
-        self.propagation = Transition_2(latent_dim, latent_dim, stochastic=False)
-
-        # decoder
-        self.decoder = Decoder(num_channel, latent_dim)
-
-        self.bg = dict()
-        self.bg1 = dict()
-        self.bg2 = dict()
-        self.bg3 = dict()
-        self.bg4 = dict()
-
-    def setup(self, heart_name, data_path, batch_size, ecgi, graph_method):
-        params = get_params(data_path, heart_name, batch_size, ecgi, graph_method)
-        self.bg[heart_name] = params["bg"]
-        self.bg1[heart_name] = params["bg1"]
-        self.bg2[heart_name] = params["bg2"]
-        self.bg3[heart_name] = params["bg3"]
-        self.bg4[heart_name] = params["bg4"]
-        
-        self.signal_encoder.setup(heart_name, params)
-        self.condition_encoder.setup(heart_name, params)
-        self.decoder.setup(heart_name, params)
-    
-    def get_latent_domain(self, x, heart_name):
-        edge_index, edge_attr = self.bg4[heart_name].edge_index, self.bg4[heart_name].edge_attr
-        
-        # Domain
-        _x = self.domain_seq(x, edge_index, edge_attr)
-        z_D = self.domain(_x)
-
-        return z_D
-    
-    def get_latent_initial(self, y, heart_name):
-        z_init = self.condition_encoder(y, heart_name)
-        z_0 = self.initial(z_init[:, :, :, 0])
-        
-        return z_0
-    
-    def time_modeling(self, x, z_0, z_D):
-        N, V, C, T = x.shape
-
-        z_prev = z_0
-        z = []
-        for i in range(1, T):
-            z_t = self.propagation(z_prev, z_D)
-            z_prev = z_t
-            z_t = z_t.view(1, N, V, C)
-            z.append(z_t)
-        z = torch.cat(z, dim=0)
-        z_0 = z_0.view(1, N, V, C)
-        z = torch.cat([z_0, z], dim=0)
-        z = z.permute(1, 2, 3, 0).contiguous()
-
-        return z
-
-    def forward(self, x, heart_name, label=None):
-        y = one_hot_label(label[:, 2] - 1, x)
-        z_s = self.signal_encoder(x, heart_name, y)
-        z_D = self.get_latent_domain(z_s, heart_name)
-
-        z_0 = self.get_latent_initial(y, heart_name)
-
-        z = self.time_modeling(z_s, z_0, z_D)
-        
-        x = self.decoder(z, heart_name)
-        return (x, None), (None, None, None, None)
-    
-    def personalization(self, x, eval_x, heart_name, label=None, eval_label=None):
-        y = one_hot_label(label[:, 2] - 1, x)
-        z_0 = self.get_latent_initial(y, heart_name)
-
-        eval_y = one_hot_label(eval_label[:, 2] - 1, eval_x)
-        z_s = self.signal_encoder(eval_x, heart_name, eval_y)
-        z_D = self.get_latent_domain(z_s, heart_name)
-        
-        z = self.time_modeling(z_s, z_0, z_D)
-
-        x = self.decoder(z, heart_name)
-        return (x, None), (None, None, None, None)
-
-
-class DomainInvariantDynamics(BaseModel):
-    def __init__(self,
-                 num_channel,
-                 latent_dim,
-                 obs_dim,
-                 initial_dim,
-                 rnn_type):
-        super().__init__()
-        self.nf = num_channel
-        self.latent_dim = latent_dim
-        self.obs_dim = obs_dim
-        self.initial_dim = initial_dim
-        self.rnn_type = rnn_type
-
-        # encoder
-        self.signal_encoder = Encoder(num_channel, latent_dim, cond=True)
-        self.condition_encoder = Encoder(num_channel, latent_dim)
-
-        # Domain model
-        self.domain_seq = RnnEncoder(latent_dim, latent_dim,
-                                     dim=3,
-                                     kernel_size=3,
-                                     norm=False,
-                                     n_layer=1,
-                                     rnn_type=rnn_type,
-                                     bd=False,
-                                     reverse_input=False)
-        self.domain = Aggregator(latent_dim, latent_dim, obs_dim, stochastic=False)
-
-        # initialization
-        self.initial = nn.Linear(latent_dim, latent_dim)
-
-        self.propagation = Transition(latent_dim, latent_dim, stochastic=False)
-
-        # decoder
-        self.decoder = Decoder(num_channel, latent_dim)
-
-        self.bg = dict()
-        self.bg1 = dict()
-        self.bg2 = dict()
-        self.bg3 = dict()
-        self.bg4 = dict()
-
-    def setup(self, heart_name, data_path, batch_size, ecgi, graph_method):
-        params = get_params(data_path, heart_name, batch_size, ecgi, graph_method)
-        self.bg[heart_name] = params["bg"]
-        self.bg1[heart_name] = params["bg1"]
-        self.bg2[heart_name] = params["bg2"]
-        self.bg3[heart_name] = params["bg3"]
-        self.bg4[heart_name] = params["bg4"]
-        
-        self.signal_encoder.setup(heart_name, params)
-        self.condition_encoder.setup(heart_name, params)
-        self.decoder.setup(heart_name, params)
-    
-    def get_latent_domain(self, x, heart_name):
-        edge_index, edge_attr = self.bg4[heart_name].edge_index, self.bg4[heart_name].edge_attr
-        
-        # Domain
-        _x = self.domain_seq(x, edge_index, edge_attr)
-        z_D = self.domain(_x)
-
-        return z_D
-    
-    def get_latent_initial(self, y, heart_name):
-        # TODO: not that reasonable
-        z_init = self.condition_encoder(y, heart_name)
-        z_0 = self.initial(z_init[:, :, :, 0])
-        
-        return z_0
-    
-    def time_modeling(self, x, z_0, z_D):
-        N, V, C, T = x.shape
-
-        z_prev = z_0
-        z = []
-        for i in range(1, T):
-            z_t = self.propagation(z_prev, z_D)
-            z_prev = z_t
-            z_t = z_t.view(1, N, V, C)
-            z.append(z_t)
-        z = torch.cat(z, dim=0)
-        z_0 = z_0.view(1, N, V, C)
-        z = torch.cat([z_0, z], dim=0)
-        z = z.permute(1, 2, 3, 0).contiguous()
-
-        return z
-
-    def forward(self, x, heart_name, label=None):
-        y = one_hot_label(label[:, 2] - 1, x)
-        z_s = self.signal_encoder(x, heart_name, y)
-        z_D = self.get_latent_domain(z_s, heart_name)
-
-        z_0 = self.get_latent_initial(y, heart_name)
-
-        z = self.time_modeling(z_s, z_0, z_D)
-        
-        x = self.decoder(z, heart_name)
-        return (x, None), (None, None, None, None)
+        return (x, None), (mu_c, logvar_c, mu_z, logvar_z)
     
     def personalization(self, x, eval_x, heart_name, label=None, eval_label=None):
         y = one_hot_label(label[:, 2] - 1, x)
