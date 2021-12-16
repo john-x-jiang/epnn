@@ -18,8 +18,8 @@ def train_driver(model, checkpt, epoch_start, optimizer, lr_scheduler, \
     train_loaders, valid_loaders, loss, metrics, hparams, exp_dir):
     train_loss, val_loss = [], []
 
-    kl_t, kl_z_t, nll_p_t, nll_q_t = [], [], [], []
-    kl_e, kl_z_e, nll_p_e, nll_q_e = [], [], [], []
+    kl_t, nll_p_t, nll_q_t = [], [], []
+    kl_e, nll_p_e, nll_q_e = [], [], []
 
     train_config = dict(hparams.training)
     monitor_mode, monitor_metric = train_config['monitor'].split()
@@ -40,11 +40,11 @@ def train_driver(model, checkpt, epoch_start, optimizer, lr_scheduler, \
     for epoch in range(epoch_start, train_config['epochs'] + 1):
         ts = time.time()
         # train epoch
-        total_loss_t, kl_loss_t, kl_z_loss_t, nll_p_loss_t, nll_q_loss_t = \
+        total_loss_t, kl_loss_t, nll_p_loss_t, nll_q_loss_t = \
             train_epoch(model, epoch, loss, optimizer, train_loaders, hparams)
         
         # valid epoch
-        total_loss_e, kl_loss_e, kl_z_loss_e, nll_p_loss_e, nll_q_loss_e = \
+        total_loss_e, kl_loss_e, nll_p_loss_e, nll_q_loss_e = \
             valid_epoch(model, epoch, loss, valid_loaders, hparams)
         te = time.time()
 
@@ -54,8 +54,6 @@ def train_driver(model, checkpt, epoch_start, optimizer, lr_scheduler, \
 
         kl_t.append(kl_loss_t)
         kl_e.append(kl_loss_e)
-        kl_z_t.append(kl_z_loss_t)
-        kl_z_e.append(kl_z_loss_e)
         nll_p_t.append(nll_p_loss_t)
         nll_p_e.append(nll_p_loss_e)
         nll_q_t.append(nll_q_loss_t)
@@ -81,8 +79,6 @@ def train_driver(model, checkpt, epoch_start, optimizer, lr_scheduler, \
             
             'kl_t': kl_t,
             'kl_e': kl_e,
-            'kl_z_t': kl_z_t,
-            'kl_z_e': kl_z_e,
             'nll_p_t': nll_p_t,
             'nll_p_e': nll_p_e,
             'nll_q_t': nll_q_t,
@@ -130,10 +126,6 @@ def train_driver(model, checkpt, epoch_start, optimizer, lr_scheduler, \
             kl_t,
             kl_e
         ],
-        'kl_z': [
-            kl_z_t,
-            kl_z_e
-        ],
         'nll_p': [
             nll_p_t,
             nll_p_e
@@ -157,7 +149,6 @@ def train_epoch(model, epoch, loss, optimizer, data_loaders, hparams):
     loss_type = hparams.loss
     total_loss = 0
     kl_loss, nll_p_loss, nll_q_loss = 0, 0, 0
-    kl_z_loss = 0
     n_steps = 0
     batch_size = hparams.batch_size
 
@@ -221,10 +212,10 @@ def train_epoch(model, epoch, loss, optimizer, data_loaders, hparams):
                 total = loss(x_, x)
             elif loss_type == 'domain_recon_loss':
                 x_, _ = physics_vars
-                mu_c, logvar_c, mu_z, logvar_z = statistic_vars
+                mu_c, logvar_c, _, _ = statistic_vars
 
-                kl_c, kl_z, nll, nll_0, total = \
-                    loss(x_, x, mu_c, logvar_c, mu_z, logvar_z, kl_factor, r1, r2)
+                kl_c, nll, nll_0, total = \
+                    loss(x_, x, mu_c, logvar_c, kl_factor)
             else:
                 raise NotImplemented
 
@@ -237,7 +228,6 @@ def train_epoch(model, epoch, loss, optimizer, data_loaders, hparams):
                 nll_q_loss += nll_q.item()
             elif loss_type == 'domain_recon_loss':
                 kl_loss += kl_c.item()
-                kl_z_loss += kl_z.item()
                 nll_p_loss += nll.item()
                 nll_q_loss += nll_0.item()
             n_steps += 1
@@ -248,11 +238,10 @@ def train_epoch(model, epoch, loss, optimizer, data_loaders, hparams):
 
     total_loss /= n_steps
     kl_loss /= n_steps
-    kl_z_loss /= n_steps
     nll_p_loss /= n_steps
     nll_q_loss /= n_steps
 
-    return total_loss, kl_loss, kl_z_loss, nll_p_loss, nll_q_loss
+    return total_loss, kl_loss, nll_p_loss, nll_q_loss
 
 
 def valid_epoch(model, epoch, loss, data_loaders, hparams):
@@ -266,7 +255,6 @@ def valid_epoch(model, epoch, loss, data_loaders, hparams):
     loss_type = hparams.loss
     total_loss = 0
     kl_loss, nll_p_loss, nll_q_loss = 0, 0, 0
-    kl_z_loss = 0
     n_steps = 0
     batch_size = hparams.batch_size
 
@@ -326,10 +314,10 @@ def valid_epoch(model, epoch, loss, data_loaders, hparams):
                     total = loss(x_, x)
                 elif loss_type == 'domain_recon_loss':
                     x_, _ = physics_vars
-                    mu_c, logvar_c, mu_z, logvar_z = statistic_vars
+                    mu_c, logvar_c, _, _ = statistic_vars
 
-                    kl_c, kl_z, nll, nll_0, total = \
-                        loss(x_, x, mu_c, logvar_c, mu_z, logvar_z, kl_factor, r1, r2)
+                    kl_c, nll, nll_0, total = \
+                        loss(x_, x, mu_c, logvar_c, kl_factor)
                 else:
                     raise NotImplemented
 
@@ -340,18 +328,16 @@ def valid_epoch(model, epoch, loss, data_loaders, hparams):
                     nll_q_loss += nll_q.item()
                 elif loss_type == 'domain_recon_loss':
                     kl_loss += kl_c.item()
-                    kl_z_loss += kl_z.item()
                     nll_p_loss += nll.item()
                     nll_q_loss += nll_0.item()
                 n_steps += 1
 
     total_loss /= n_steps
     kl_loss /= n_steps
-    kl_z_loss /= n_steps
     nll_p_loss /= n_steps
     nll_q_loss /= n_steps
 
-    return total_loss, kl_loss, kl_z_loss, nll_p_loss, nll_q_loss
+    return total_loss, kl_loss, nll_p_loss, nll_q_loss
 
 
 def determine_annealing_factor(min_anneal_factor,

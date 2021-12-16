@@ -41,7 +41,7 @@ def recon_loss(x_, x):
     return total
 
 
-def domain_recon_loss(x_, x, mu_c, logvar_c, mu_z, logvar_z, kl_annealing_factor=1, r1=1, r2=1):
+def domain_recon_loss(x_, x, mu_c, logvar_c, kl_annealing_factor=1):
     B, T = x.shape[0], x.shape[-1]
     nll_raw_0 = mse_loss(x_[:, :, 0], x[:, :, 0], 'none')
     nll_raw = mse_loss(x_[:, :, 1:], x[:, :, 1:], 'none')
@@ -50,14 +50,11 @@ def domain_recon_loss(x_, x, mu_c, logvar_c, mu_z, logvar_z, kl_annealing_factor
     nll_m = nll_raw.sum() / (B * (T - 1))
 
     kl_raw_c = kl_div_stn(mu_c, logvar_c)
-    kl_raw_z = kl_div_stn(mu_z, logvar_z)
-
     kl_m_c = kl_raw_c.sum() / B
-    kl_m_z = kl_raw_z.sum() / B
 
-    total = kl_annealing_factor * r1 * kl_m_c + kl_annealing_factor * r1 * kl_m_z + nll_m_0 + nll_m
+    total = kl_annealing_factor * kl_m_c + nll_m_0 + nll_m
 
-    return kl_m_c, kl_m_z, nll_m, nll_m_0, total
+    return kl_m_c, nll_m, nll_m_0, total
 
 
 def dmm_loss(x, x_q, x_p, mu1, var1, mu2, var2, kl_annealing_factor=1, r1=1, r2=0):

@@ -611,12 +611,10 @@ class DomainInvariantDynamics(BaseModel):
         self.domain = Aggregator(latent_dim, latent_dim, obs_dim, stochastic=False)
         self.mu_c = nn.Linear(latent_dim, latent_dim)
         self.var_c = nn.Linear(latent_dim, latent_dim)
-        self.act_c = nn.Tanh()
+        self.mu_c.weight.data = torch.eye(latent_dim)
+        self.mu_c.bias.data = torch.zeros(latent_dim)
 
         # initialization
-        self.mu_z = nn.Linear(latent_dim, latent_dim)
-        self.var_z = nn.Linear(latent_dim, latent_dim)
-        self.act_z = nn.Tanh()
 
         # time modeling
         self.propagation = Transition(latent_dim, latent_dim, stochastic=False)
@@ -653,19 +651,20 @@ class DomainInvariantDynamics(BaseModel):
 
         z_c = sum(z_Ds) / len(z_Ds)
         mu_c = self.mu_c(z_c)
-        logvar_c = self.act_c(self.var_c(z_c))
+        logvar_c = self.var_c(z_c)
+        mu_c = torch.clamp(mu_c, min=-100, max=85)
+        logvar_c = torch.clamp(logvar_c, min=-100, max=85)
 
         return mu_c, logvar_c
+        # return z_c
     
     def get_latent_initial(self, y, heart_name):
         N, V, T = y.shape
         y = y[:, :, 0].view(N, V, 1)
         z_0 = self.condition_encoder(y, heart_name)
         z_0 = torch.squeeze(z_0)
-        mu_z = self.mu_z(z_0)
-        logvar_z = self.act_z(self.var_z(z_0))
         
-        return mu_z, logvar_z
+        return z_0
     
     def time_modeling(self, x, z_0, z_c):
         N, V, C, T = x.shape
@@ -694,36 +693,47 @@ class DomainInvariantDynamics(BaseModel):
         z_x = self.signal_encoder(x, heart_name)
         N, K, V, T = D.shape
         z_Ds = []
-        for i in range(K):
-            Di = D[:, i, :, :].view(N, V, T)
-            z_Ds.append(self.signal_encoder(Di, heart_name))
+        # for i in range(K):
+        #     Di = D[:, i, :, :].view(N, V, T)
+        #     z_Ds.append(self.signal_encoder(Di, heart_name))
+        z_Ds.append(z_x)
+        mu_c, logvar_c = self.get_latent_domain(z_Ds, heart_name)
+        z_c = self.reparameterization(mu_c, logvar_c)
+        # z_c = self.get_latent_domain(z_Ds, heart_name)
+
+        # q(z)
+        y = one_hot_label(label[:, 2] - 1, x)
+        # TODO: check the output of z0
+        z_0 = self.get_latent_initial(y, heart_name)
+
+        # p(x | z, c)
+        z = self.time_modeling(z_x, z_0, z_c)
+        x = self.decoder(z, heart_name)
+        
+        return (x, None), (mu_c, logvar_c, None, None)
+        # return (x, None), (None, None, None, None)
+    
+    def personalization(self, x, eval_x, heart_name, label=None, eval_label=None, D=None):
+        # q(c | D)
+        z_x = self.signal_encoder(eval_x, heart_name)
+        N, K, V, T = D.shape
+        z_Ds = []
+        # for i in range(K):
+        #     Di = D[:, i, :, :].view(N, V, T)
+        #     z_Ds.append(self.signal_encoder(Di, heart_name))
         z_Ds.append(z_x)
         mu_c, logvar_c = self.get_latent_domain(z_Ds, heart_name)
         z_c = self.reparameterization(mu_c, logvar_c)
 
         # q(z)
         y = one_hot_label(label[:, 2] - 1, x)
-        mu_z, logvar_z = self.get_latent_initial(y, heart_name)
-        z_0 = self.reparameterization(mu_z, logvar_z)
+        z_0 = self.get_latent_initial(y, heart_name)
 
         # p(x | z, c)
         z = self.time_modeling(z_x, z_0, z_c)
         x = self.decoder(z, heart_name)
         
-        return (x, None), (mu_c, logvar_c, mu_z, logvar_z)
-    
-    def personalization(self, x, eval_x, heart_name, label=None, eval_label=None):
-        y = one_hot_label(label[:, 2] - 1, x)
-        z_0 = self.get_latent_initial(y, heart_name)
-
-        eval_y = one_hot_label(eval_label[:, 2] - 1, eval_x)
-        z_s = self.signal_encoder(eval_x, heart_name, eval_y)
-        z_D = self.get_latent_domain(z_s, heart_name)
-        
-        z = self.time_modeling(z_s, z_0, z_D)
-
-        x = self.decoder(z, heart_name)
-        return (x, None), (None, None, None, None)
+        return (x, None), (mu_c, logvar_c, None, None)
 
 
 class ODEDisentangledDynamics(BaseModel):
