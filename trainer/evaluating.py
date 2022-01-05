@@ -59,7 +59,10 @@ def evaluate_epoch(model, data_loaders, metrics, exp_dir, hparams, data_tag, eva
                     physics_vars, statistic_vars = model(source, data_name, label)
                 else:
                     D = data.D
+                    D_label = data.D_label
                     D = D.to(device)
+                    D_label = D_label.to(device)
+
                     N, M, T = signal.shape
                     D = D.view(N, -1, M ,T)
                     D_x = D[:, :, :-torso_len, omit:]
@@ -69,7 +72,7 @@ def evaluate_epoch(model, data_loaders, metrics, exp_dir, hparams, data_tag, eva
                         D_source = D_x
                     elif signal_source == 'torso':
                         D_source = D_y
-                    physics_vars, statistic_vars = model(source, data_name, label, D_source)
+                    physics_vars, statistic_vars = model(source, data_name, label, D_source, D_label)
                 
                 if loss_type == 'dmm_loss':
                     x_q, x_p = physics_vars
@@ -199,8 +202,11 @@ def personalize_epoch(model, eval_data_loaders, pred_data_loaders, metrics, exp_
                 if k_shot is None:
                     physics_vars, statistic_vars = model.personalization(source, eval_source, data_name, label, eval_label)
                 else:
-                    D = eval_data.D
+                    D = data.D
+                    D_label = data.D_label
                     D = D.to(device)
+                    D_label = D_label.to(device)
+
                     N, M, T = signal.shape
                     D = D.view(N, -1, M ,T)
                     D_x = D[:, :, :-torso_len, omit:]
@@ -210,7 +216,7 @@ def personalize_epoch(model, eval_data_loaders, pred_data_loaders, metrics, exp_
                         D_source = D_x
                     elif signal_source == 'torso':
                         D_source = D_y
-                    physics_vars, statistic_vars = model.personalization(source, eval_source, data_name, label, eval_label, D_source)
+                    physics_vars, statistic_vars = model.personalization(source, eval_source, data_name, label, eval_label, D_source, D_label)
                 
                 if loss_type == 'dmm_loss':
                     x_q, x_p = physics_vars

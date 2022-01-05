@@ -10,12 +10,13 @@ from torch_geometric.data import Data
 
 
 class DataWithDomain(Data):
-    def __init__(self, x, y, pos, D=None):
+    def __init__(self, x, y, pos, D=None, D_label=None):
         super().__init__()
         self.x = x
         self.y = y
         self.pos = pos
         self.D = D
+        self.D_label = D_label
 
 
 class HeartGraphDataset(Dataset):
@@ -135,19 +136,26 @@ class HeartGraphDomainDataset(Dataset):
         y = self.label[[idx]]
 
         D = []
+        D_label = []
         scar = y[:, 1].numpy()[0]
         scar_samples = self.scar_idx[scar]
         scar_samples = np.delete(scar_samples, np.where(scar_samples == idx)[0])
-        selected_samples = scar_samples[np.random.choice(len(scar_samples), self.k_shot, replace=False)]
+        selected_idx = np.random.choice(len(scar_samples), self.k_shot, replace=False)
+        selected_samples = scar_samples[selected_idx]
+        
         for item in selected_samples:
             D.append(self.data[[item], :, :])
+            D_label.append(self.label[[item]])
         D = torch.cat(D, dim=1)
+        D_label = torch.cat(D_label, dim=0)
+        D_label = D_label.view(1, self.k_shot, -1)
 
         sample = DataWithDomain(
             x=x,
             y=y,
             pos=self.heart_name,
-            D=D
+            D=D,
+            D_label=D_label
         )
         return sample
 

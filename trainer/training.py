@@ -146,7 +146,8 @@ def train_epoch(model, epoch, loss, optimizer, data_loaders, hparams):
     signal_source = train_config['signal_source']
     omit = train_config['omit']
     k_shot = train_config.get('k_shot')
-    loss_type = hparams.loss
+    loss_type = train_config.get('loss_type')
+    loss_func = hparams.loss
     total_loss = 0
     kl_loss, nll_p_loss, nll_q_loss = 0, 0, 0
     n_steps = 0
@@ -189,7 +190,10 @@ def train_epoch(model, epoch, loss, optimizer, data_loaders, hparams):
                 physics_vars, statistic_vars = model(source, data_name, label)
             else:
                 D = data.D
+                D_label = data.D_label
                 D = D.to(device)
+                D_label = D_label.to(device)
+
                 N, M, T = signal.shape
                 D = D.view(N, -1, M ,T)
                 D_x = D[:, :, :-torso_len, omit:]
@@ -199,34 +203,36 @@ def train_epoch(model, epoch, loss, optimizer, data_loaders, hparams):
                     D_source = D_x
                 elif signal_source == 'torso':
                     D_source = D_y
-                physics_vars, statistic_vars = model(source, data_name, label, D_source)
+                physics_vars, statistic_vars = model(source, data_name, label, D_source, D_label)
             
-            if loss_type == 'dmm_loss':
+            if loss_func == 'dmm_loss':
                 x_q, x_p = physics_vars
                 mu_q, logvar_q, mu_p, logvar_p = statistic_vars
 
                 kl, nll_q, nll_p, total = \
                     loss(x, x_q, x_p, mu_q, logvar_q, mu_p, logvar_p, kl_factor, r1, r2)
-            elif loss_type == 'recon_loss' or loss_type == 'mse_loss':
+            elif loss_func == 'recon_loss' or loss_func == 'mse_loss':
                 x_, _ = physics_vars
                 total = loss(x_, x)
-            elif loss_type == 'domain_recon_loss':
-                x_, _ = physics_vars
+            elif loss_func == 'domain_recon_loss':
+                x_, D_ = physics_vars
                 mu_c, logvar_c, _, _ = statistic_vars
 
+                if loss_type is None:
+                    loss_type = 'mse'
                 kl_c, nll, nll_0, total = \
-                    loss(x_, x, mu_c, logvar_c, kl_factor)
+                    loss(x_, x, D_, D_source, mu_c, logvar_c, kl_factor, loss_type)
             else:
                 raise NotImplemented
 
             total.backward()
 
             total_loss += total.item()
-            if loss_type == 'dmm_loss':
+            if loss_func == 'dmm_loss':
                 kl_loss += kl.item()
                 nll_p_loss += nll_p.item()
                 nll_q_loss += nll_q.item()
-            elif loss_type == 'domain_recon_loss':
+            elif loss_func == 'domain_recon_loss':
                 kl_loss += kl_c.item()
                 nll_p_loss += nll.item()
                 nll_q_loss += nll_0.item()
@@ -252,7 +258,8 @@ def valid_epoch(model, epoch, loss, data_loaders, hparams):
     signal_source = train_config['signal_source']
     omit = train_config['omit']
     k_shot = train_config.get('k_shot')
-    loss_type = hparams.loss
+    loss_type = train_config.get('loss_type')
+    loss_func = hparams.loss
     total_loss = 0
     kl_loss, nll_p_loss, nll_q_loss = 0, 0, 0
     n_steps = 0
@@ -291,7 +298,10 @@ def valid_epoch(model, epoch, loss, data_loaders, hparams):
                     physics_vars, statistic_vars = model(source, data_name, label)
                 else:
                     D = data.D
+                    D_label = data.D_label
                     D = D.to(device)
+                    D_label = D_label.to(device)
+
                     N, M, T = signal.shape
                     D = D.view(N, -1, M ,T)
                     D_x = D[:, :, :-torso_len, omit:]
@@ -301,32 +311,34 @@ def valid_epoch(model, epoch, loss, data_loaders, hparams):
                         D_source = D_x
                     elif signal_source == 'torso':
                         D_source = D_y
-                    physics_vars, statistic_vars = model(source, data_name, label, D_source)
+                    physics_vars, statistic_vars = model(source, data_name, label, D_source, D_label)
                 
-                if loss_type == 'dmm_loss':
+                if loss_func == 'dmm_loss':
                     x_q, x_p = physics_vars
                     mu_q, logvar_q, mu_p, logvar_p = statistic_vars
 
                     kl, nll_q, nll_p, total = \
                         loss(x, x_q, x_p, mu_q, logvar_q, mu_p, logvar_p, kl_factor, r1, r2)
-                elif loss_type == 'recon_loss' or loss_type == 'mse_loss':
+                elif loss_func == 'recon_loss' or loss_func == 'mse_loss':
                     x_, _ = physics_vars
                     total = loss(x_, x)
-                elif loss_type == 'domain_recon_loss':
-                    x_, _ = physics_vars
+                elif loss_func == 'domain_recon_loss':
+                    x_, D_ = physics_vars
                     mu_c, logvar_c, _, _ = statistic_vars
 
+                    if loss_type is None:
+                        loss_type = 'mse'
                     kl_c, nll, nll_0, total = \
-                        loss(x_, x, mu_c, logvar_c, kl_factor)
+                        loss(x_, x, D_, D_source, mu_c, logvar_c, kl_factor, loss_type)
                 else:
                     raise NotImplemented
 
                 total_loss += total.item()
-                if loss_type == 'dmm_loss':
+                if loss_func == 'dmm_loss':
                     kl_loss += kl.item()
                     nll_p_loss += nll_p.item()
                     nll_q_loss += nll_q.item()
-                elif loss_type == 'domain_recon_loss':
+                elif loss_func == 'domain_recon_loss':
                     kl_loss += kl_c.item()
                     nll_p_loss += nll.item()
                     nll_q_loss += nll_0.item()
