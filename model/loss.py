@@ -59,23 +59,45 @@ def recon_loss(x_, x):
 def domain_recon_loss(x_, x, D_, D, mu_c, logvar_c, kl_annealing_factor=1, loss_type='mse'):
     B, T = x.shape[0], x.shape[-1]
     nll_raw_0 = nll_loss(x_[:, :, 0], x[:, :, 0], 'none', loss_type)
+    nll_raw = nll_loss(x_, x, 'none', loss_type)
+
+    nll_m_0 = nll_raw_0.sum() / B
+    nll_m = nll_raw.sum() / (B * T)
+
+    # K = D.shape[1]
+    nll_raw_D_0 = nll_loss(D_[:, :, :, 0], D[:, :, :, 0], 'none', loss_type)
+    nll_raw_D = nll_loss(D_, D, 'none', loss_type)
+
+    nll_m_D_0 = nll_raw_D_0.sum() / B
+    nll_m_D = nll_raw_D.sum() / (B * T)
+
+    kl_raw_c = kl_div_stn(mu_c, logvar_c)
+    kl_m_c = kl_raw_c.sum() / B
+
+    total = kl_annealing_factor * kl_m_c + nll_m_0 + nll_m + nll_m_D_0 + nll_m_D
+
+    return kl_m_c, nll_m, nll_m_0, total
+
+
+def domain_recon_loss_18(x_, x, D_, D, mu_c, logvar_c, kl_annealing_factor=1, loss_type='mse'):
+    B, T = x.shape[0], x.shape[-1]
+    nll_raw_0 = nll_loss(x_[:, :, 0], x[:, :, 0], 'none', loss_type)
     nll_raw = nll_loss(x_[:, :, 1:], x[:, :, 1:], 'none', loss_type)
 
     nll_m_0 = nll_raw_0.sum() / B
     nll_m = nll_raw.sum() / B
 
-    # # K = D.shape[1]
-    # nll_raw_D_0 = nll_loss(D_[:, :, :, 0], D[:, :, :, 0], 'none', loss_type)
-    # nll_raw_D = nll_loss(D_[:, :, :, 1:], D[:, :, :, 1:], 'none', loss_type)
+    # K = D.shape[1]
+    nll_raw_D_0 = nll_loss(D_[:, :, :, 0], D[:, :, :, 0], 'none', loss_type)
+    nll_raw_D = nll_loss(D_[:, :, :, 1:], D[:, :, :, 1:], 'none', loss_type)
 
-    # nll_m_D_0 = nll_raw_D_0.sum() / B
-    # nll_m_D = nll_raw_D.sum() / B
+    nll_m_D_0 = nll_raw_D_0.sum() / B
+    nll_m_D = nll_raw_D.sum() / B
 
     kl_raw_c = kl_div_stn(mu_c, logvar_c)
     kl_m_c = kl_raw_c.sum() / B
 
-    # total = kl_annealing_factor * kl_m_c + nll_m_0 + nll_m + nll_m_D_0 + nll_m_D
-    total = kl_annealing_factor * kl_m_c + nll_m_0 + nll_m
+    total = kl_annealing_factor * kl_m_c + nll_m_0 + nll_m + nll_m_D_0 + nll_m_D
 
     return kl_m_c, nll_m, nll_m_0, total
 
