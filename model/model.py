@@ -727,18 +727,26 @@ class DomainInvariantDynamics(BaseModel):
     
     def personalization(self, x, eval_x, heart_name, label=None, eval_label=None, D=None, D_label=None):
         eval_y = one_hot_label(eval_label[:, 2] - 1, eval_x)
+        N, K, V, T = D.shape
+        D_ys = []
+        for i in range(K):
+            D_yi = D_label[:, i, :]
+            D_yi = one_hot_label(D_yi[:, 2] - 1, x)
+            D_ys.append(D_yi)
+        
         # q(c | D)
         z_x = self.signal_encoder(eval_x, heart_name, eval_y)
         N, K, V, T = D.shape
         z_Ds = []
         for i in range(K):
             Di = D[:, i, :, :].view(N, V, T)
-            z_Ds.append(self.signal_encoder(Di, heart_name))
+            z_Ds.append(self.signal_encoder(Di, heart_name, D_ys[i]))
         # z_Ds.append(z_x)
         mu_c, logvar_c = self.get_latent_domain(z_Ds, heart_name)
         z_c = self.reparameterization(mu_c, logvar_c)
 
         # q(z)
+        y = one_hot_label(label[:, 2] - 1, x)
         z_0 = self.get_latent_initial(y, heart_name)
 
         # p(x | z, c)
