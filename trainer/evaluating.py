@@ -127,6 +127,7 @@ def evaluate_epoch(model, data_loaders, metrics, exp_dir, hparams, data_tag, eva
                             sccs[data_name] = scc
                         else:
                             sccs[data_name] = np.concatenate((sccs[data_name], scc), axis=0)
+    
     for met in metrics:
         if met.__name__ == 'mse':
             print_results(exp_dir, 'mse', mses)
@@ -136,7 +137,6 @@ def evaluate_epoch(model, data_loaders, metrics, exp_dir, hparams, data_tag, eva
             print_results(exp_dir, 'scc', sccs)
     
     save_result(exp_dir, q_recons, all_xs, all_labels, data_tag)
-    # save_z(exp_dir, all_zD, all_z0, all_labels, data_tag)
 
 
 def personalize_driver(model, eval_data_loaders, pred_data_loaders, metrics, hparams, exp_dir, eval_tag, pred_tag):

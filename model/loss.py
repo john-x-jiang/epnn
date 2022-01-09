@@ -62,14 +62,14 @@ def domain_recon_loss(x_, x, D_, D, mu_c, logvar_c, kl_annealing_factor=1, loss_
     nll_raw = nll_loss(x_, x, 'none', loss_type)
 
     nll_m_0 = nll_raw_0.sum() / B
-    nll_m = nll_raw.sum() / (B * T)
+    nll_m = nll_raw.sum() / B
 
     # K = D.shape[1]
     nll_raw_D_0 = nll_loss(D_[:, :, :, 0], D[:, :, :, 0], 'none', loss_type)
     nll_raw_D = nll_loss(D_, D, 'none', loss_type)
 
     nll_m_D_0 = nll_raw_D_0.sum() / B
-    nll_m_D = nll_raw_D.sum() / (B * T)
+    nll_m_D = nll_raw_D.sum() / B
 
     kl_raw_c = kl_div_stn(mu_c, logvar_c)
     kl_m_c = kl_raw_c.sum() / B
