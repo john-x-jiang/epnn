@@ -202,8 +202,8 @@ def personalize_epoch(model, eval_data_loaders, pred_data_loaders, metrics, exp_
                 if k_shot is None:
                     physics_vars, statistic_vars = model.personalization(source, eval_source, data_name, label, eval_label)
                 else:
-                    D = data.D
-                    D_label = data.D_label
+                    D = eval_data.D
+                    D_label = eval_data.D_label
                     D = D.to(device)
                     D_label = D_label.to(device)
 
