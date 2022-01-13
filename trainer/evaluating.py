@@ -34,8 +34,6 @@ def evaluate_epoch(model, data_loaders, metrics, exp_dir, hparams, data_tag, eva
     q_recons = {}
     all_xs = {}
     all_labels = {}
-    # all_zD = {}
-    # all_z0 = {}
 
     with torch.no_grad():
         data_names = list(data_loaders.keys())
@@ -80,7 +78,6 @@ def evaluate_epoch(model, data_loaders, metrics, exp_dir, hparams, data_tag, eva
                 elif loss_type == 'recon_loss' or loss_type == 'mse_loss':
                     x_, _ = physics_vars
 
-                    # z_D, z_0, _, _ = statistic_vars
                 elif loss_type == 'domain_recon_loss':
                     x_, _ = physics_vars
                 else:
@@ -90,16 +87,10 @@ def evaluate_epoch(model, data_loaders, metrics, exp_dir, hparams, data_tag, eva
                     q_recons[data_name] = tensor2np(x_)
                     all_xs[data_name] = tensor2np(x)
                     all_labels[data_name] = tensor2np(label)
-
-                    # all_zD[data_name] = tensor2np(z_D)
-                    # all_z0[data_name] = tensor2np(z_0)
                 else:
                     q_recons[data_name] = np.concatenate((q_recons[data_name], tensor2np(x_)), axis=0)
                     all_xs[data_name] = np.concatenate((all_xs[data_name], tensor2np(x)), axis=0)
                     all_labels[data_name] = np.concatenate((all_labels[data_name], tensor2np(label)), axis=0)
-
-                    # all_zD[data_name] = np.concatenate((all_zD[data_name], tensor2np(z_D)), axis=0)
-                    # all_z0[data_name] = np.concatenate((all_z0[data_name], tensor2np(z_0)), axis=0)
 
                 for met in metrics:
                     if met.__name__ == 'mse':
@@ -160,8 +151,6 @@ def personalize_epoch(model, eval_data_loaders, pred_data_loaders, metrics, exp_
     q_recons = {}
     all_xs = {}
     all_labels = {}
-    # all_zD = {}
-    # all_z0 = {}
 
     with torch.no_grad():
         data_names = list(pred_data_loaders.keys())
@@ -224,7 +213,6 @@ def personalize_epoch(model, eval_data_loaders, pred_data_loaders, metrics, exp_
                 elif loss_type == 'recon_loss' or loss_type == 'mse_loss':
                     x_, _ = physics_vars
 
-                    # z_D, z_0, _, _ = statistic_vars
                 elif loss_type == 'domain_recon_loss':
                     x_, _ = physics_vars
                 else:
@@ -234,16 +222,10 @@ def personalize_epoch(model, eval_data_loaders, pred_data_loaders, metrics, exp_
                     q_recons[data_name] = tensor2np(x_)
                     all_xs[data_name] = tensor2np(x)
                     all_labels[data_name] = tensor2np(label)
-
-                    # all_zD[data_name] = tensor2np(z_D)
-                    # all_z0[data_name] = tensor2np(z_0)
                 else:
                     q_recons[data_name] = np.concatenate((q_recons[data_name], tensor2np(x_)), axis=0)
                     all_xs[data_name] = np.concatenate((all_xs[data_name], tensor2np(x)), axis=0)
                     all_labels[data_name] = np.concatenate((all_labels[data_name], tensor2np(label)), axis=0)
-
-                    # all_zD[data_name] = np.concatenate((all_zD[data_name], tensor2np(z_D)), axis=0)
-                    # all_z0[data_name] = np.concatenate((all_z0[data_name], tensor2np(z_0)), axis=0)
 
                 for met in metrics:
                     if met.__name__ == 'mse':
@@ -281,7 +263,6 @@ def personalize_epoch(model, eval_data_loaders, pred_data_loaders, metrics, exp_
             print_results(exp_dir, 'scc', sccs)
     
     save_result(exp_dir, q_recons, all_xs, all_labels, pred_tag, pred=True)
-    # save_z(exp_dir, all_zD, all_z0, all_labels, pred_tag, pred=True)
 
 
 def print_results(exp_dir, met_name, mets):
@@ -312,26 +293,6 @@ def save_result(exp_dir, recons, all_xs, all_labels, data_tag, pred=False):
             sio.savemat(
                 os.path.join(exp_dir, 'data/{}_{}_pred.mat'.format(data_name, data_tag)), 
                 {'recons': recons[data_name], 'inps': all_xs[data_name], 'label': all_labels[data_name]}
-            )
-
-
-def save_z(exp_dir, all_zD, all_z0, all_labels, data_tag, pred=False):
-    if not os.path.exists(exp_dir + '/data'):
-        os.makedirs(exp_dir + '/data')
-    
-    if not pred:
-        data_names = list(all_zD.keys())
-        for data_name in data_names:
-            sio.savemat(
-                os.path.join(exp_dir, 'data/{}_z_{}.mat'.format(data_name, data_tag)), 
-                {'zD': all_zD[data_name], 'z0': all_z0[data_name], 'label': all_labels[data_name]}
-            )
-    else:
-        data_names = list(all_zD.keys())
-        for data_name in data_names:
-            sio.savemat(
-                os.path.join(exp_dir, 'data/{}_z_{}_pred.mat'.format(data_name, data_tag)), 
-                {'zD': all_zD[data_name], 'z0': all_z0[data_name], 'label': all_labels[data_name]}
             )
 
 
