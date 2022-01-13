@@ -34,7 +34,9 @@ def train_driver(model, checkpt, epoch_start, optimizer, lr_scheduler, \
         nll_q_t, nll_q_e = checkpt['nll_q_t'], checkpt['nll_q_e']
         nll_p_t, nll_p_e = checkpt['nll_p_t'], checkpt['nll_p_e']
 
-        metric_err = checkpt[monitor_metric][-1]
+        metric_err = checkpt.get('opt_metric_err')
+        if metric_err is None:
+            metric_err = checkpt[monitor_metric][-1]
         not_improved_count = checkpt['not_improved_count']
 
     for epoch in range(epoch_start, train_config['epochs'] + 1):
@@ -76,6 +78,7 @@ def train_driver(model, checkpt, epoch_start, optimizer, lr_scheduler, \
             'not_improved_count': not_improved_count,
             'train_loss': train_loss,
             'val_loss': val_loss,
+            'opt_metric_err': metric_err,
             
             'kl_t': kl_t,
             'kl_e': kl_e,
@@ -107,6 +110,7 @@ def train_driver(model, checkpt, epoch_start, optimizer, lr_scheduler, \
                        (monitor_mode == 'max' and log[monitor_metric][-1] >= metric_err)
             if improved:
                 metric_err = log[monitor_metric][-1]
+                log['opt_metric_err'] = metric_err
                 torch.save(log, exp_dir + '/m_best')
                 not_improved_count = 0
             else:
