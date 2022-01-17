@@ -887,7 +887,7 @@ class Transition(nn.Module):
     
     def init_z_0(self, trainable=True):
         return nn.Parameter(torch.zeros(self.z_dim), requires_grad=trainable), \
-            nn.Parameter(torch.ones(self.z_dim), requires_grad=trainable)
+            nn.Parameter(torch.zeros(self.z_dim), requires_grad=trainable)
     
     def forward(self, z_t_1, z_domain):
         z_combine = torch.cat((z_t_1, z_domain), dim=2)
