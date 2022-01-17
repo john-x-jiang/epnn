@@ -55,6 +55,8 @@ def evaluate_epoch(model, data_loaders, metrics, exp_dir, hparams, data_tag, eva
 
                 if k_shot is None:
                     physics_vars, statistic_vars = model(source, data_name, label)
+                elif k_shot == 0:
+                    physics_vars, statistic_vars = model(source, data_name, label, None, None)
                 else:
                     D = data.D
                     D_label = data.D_label

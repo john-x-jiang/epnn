@@ -135,28 +135,35 @@ class HeartGraphDomainDataset(Dataset):
         x = self.data[[idx], :, :]
         y = self.label[[idx]]
 
-        D = []
-        D_label = []
-        scar = y[:, 1].numpy()[0]
-        scar_samples = self.scar_idx[scar]
-        scar_samples = np.delete(scar_samples, np.where(scar_samples == idx)[0])
-        selected_idx = np.random.choice(len(scar_samples), self.k_shot, replace=False)
-        selected_samples = scar_samples[selected_idx]
-        
-        for item in selected_samples:
-            D.append(self.data[[item], :, :])
-            D_label.append(self.label[[item]])
-        D = torch.cat(D, dim=1)
-        D_label = torch.cat(D_label, dim=0)
-        D_label = D_label.view(1, self.k_shot, -1)
+        if self.k_shot != 0:
+            D = []
+            D_label = []
+            scar = y[:, 1].numpy()[0]
+            scar_samples = self.scar_idx[scar]
+            scar_samples = np.delete(scar_samples, np.where(scar_samples == idx)[0])
+            selected_idx = np.random.choice(len(scar_samples), self.k_shot, replace=False)
+            selected_samples = scar_samples[selected_idx]
+            
+            for item in selected_samples:
+                D.append(self.data[[item], :, :])
+                D_label.append(self.label[[item]])
+            D = torch.cat(D, dim=1)
+            D_label = torch.cat(D_label, dim=0)
+            D_label = D_label.view(1, self.k_shot, -1)
 
-        sample = DataWithDomain(
-            x=x,
-            y=y,
-            pos=self.heart_name,
-            D=D,
-            D_label=D_label
-        )
+            sample = DataWithDomain(
+                x=x,
+                y=y,
+                pos=self.heart_name,
+                D=D,
+                D_label=D_label
+            )
+        else:
+            sample = Data(
+                x=x,
+                y=y,
+                pos=self.heart_name
+            )
         return sample
 
 

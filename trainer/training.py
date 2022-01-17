@@ -192,6 +192,8 @@ def train_epoch(model, epoch, loss, optimizer, data_loaders, hparams):
             
             if k_shot is None:
                 physics_vars, statistic_vars = model(source, data_name, label)
+            elif k_shot == 0:
+                physics_vars, statistic_vars = model(source, data_name, label, None, None)
             else:
                 D = data.D
                 D_label = data.D_label
@@ -224,6 +226,9 @@ def train_epoch(model, epoch, loss, optimizer, data_loaders, hparams):
 
                 if loss_type is None:
                     loss_type = 'mse'
+                if k_shot == 0:
+                    D_ = torch.zeros_like(x)
+                    D_source = torch.zeros_like(x)
                 kl_c, nll, nll_0, total = \
                     loss(x_, x, D_, D_source, mu_c, logvar_c, kl_factor, loss_type)
             else:
@@ -300,6 +305,8 @@ def valid_epoch(model, epoch, loss, data_loaders, hparams):
                 
                 if k_shot is None:
                     physics_vars, statistic_vars = model(source, data_name, label)
+                elif k_shot == 0:
+                    physics_vars, statistic_vars = model(source, data_name, label, None, None)
                 else:
                     D = data.D
                     D_label = data.D_label
@@ -332,6 +339,9 @@ def valid_epoch(model, epoch, loss, data_loaders, hparams):
 
                     if loss_type is None:
                         loss_type = 'mse'
+                    if k_shot == 0:
+                        D_ = torch.zeros_like(x)
+                        D_source = torch.zeros_like(x)
                     kl_c, nll, nll_0, total = \
                         loss(x_, x, D_, D_source, mu_c, logvar_c, kl_factor, loss_type)
                 else:

@@ -334,20 +334,22 @@ class DomainInvariantDynamics(BaseModel):
         return mu + eps * std
 
     def forward(self, x, heart_name, label=None, D=None, D_label=None):
-        y = one_hot_label(label[:, 2] - 1, x)
-        N, K, V, T = D.shape
-        D_ys = []
-        for i in range(K):
-            D_yi = D_label[:, i, :]
-            D_yi = one_hot_label(D_yi[:, 2] - 1, x)
-            D_ys.append(D_yi)
-
         # q(c | D)
+        y = one_hot_label(label[:, 2] - 1, x)
         z_x = self.signal_encoder(x, heart_name, y)
+
         z_Ds = []
-        for i in range(K):
-            Di = D[:, i, :, :].view(N, V, T)
-            z_Ds.append(self.signal_encoder(Di, heart_name, D_ys[i]))
+        if D is not None:
+            N, K, V, T = D.shape
+            D_ys = []
+            for i in range(K):
+                D_yi = D_label[:, i, :]
+                D_yi = one_hot_label(D_yi[:, 2] - 1, x)
+                D_ys.append(D_yi)
+
+                Di = D[:, i, :, :].view(N, V, T)
+                z_Ds.append(self.signal_encoder(Di, heart_name, D_yi))
+    
         z_Ds.append(z_x)
         mu_c, logvar_c = self.get_latent_domain(z_Ds, heart_name)
         z_c = self.reparameterization(mu_c, logvar_c)
@@ -361,33 +363,37 @@ class DomainInvariantDynamics(BaseModel):
 
         # reconstruction of D
         D_ = []
-        for i in range(K):
-            Dz_0 = self.get_latent_initial(D_ys[i], heart_name)
-            Dz = self.time_modeling(z_Ds[i], Dz_0, z_c)
-            Dxi = self.decoder(Dz, heart_name)
-            Dxi = Dxi.view(N, -1, V, T)
-            D_.append(Dxi)
-        D_ = torch.cat(D_, dim=1)
+        if D is not None:
+            for i in range(K):
+                Dz_0 = self.get_latent_initial(D_ys[i], heart_name)
+                Dz = self.time_modeling(z_Ds[i], Dz_0, z_c)
+                Dxi = self.decoder(Dz, heart_name)
+                Dxi = Dxi.view(N, -1, V, T)
+                D_.append(Dxi)
+            D_ = torch.cat(D_, dim=1)
         
         return (x, D_), (mu_c, logvar_c, None, None)
     
-    def personalization(self, x, eval_x, heart_name, label=None, eval_label=None, D=None, D_label=None):
-        eval_y = one_hot_label(eval_label[:, 2] - 1, eval_x)
-        N, K, V, T = D.shape
-        D_ys = []
-        for i in range(K):
-            D_yi = D_label[:, i, :]
-            D_yi = one_hot_label(D_yi[:, 2] - 1, x)
-            D_ys.append(D_yi)
-        
+    def personalization(self, x, eval_x, heart_name, label=None, eval_label=None, D=None, D_label=None):        
         # q(c | D)
+        eval_y = one_hot_label(eval_label[:, 2] - 1, eval_x)
         z_x = self.signal_encoder(eval_x, heart_name, eval_y)
         N, K, V, T = D.shape
+        
         z_Ds = []
-        for i in range(K):
-            Di = D[:, i, :, :].view(N, V, T)
-            z_Ds.append(self.signal_encoder(Di, heart_name, D_ys[i]))
-        # z_Ds.append(z_x)
+        if D is not None:
+            N, K, V, T = D.shape
+            D_ys = []
+            for i in range(K):
+                D_yi = D_label[:, i, :]
+                D_yi = one_hot_label(D_yi[:, 2] - 1, x)
+                D_ys.append(D_yi)
+
+                Di = D[:, i, :, :].view(N, V, T)
+                z_Ds.append(self.signal_encoder(Di, heart_name, D_yi))
+        else:
+            z_Ds.append(z_x)
+        
         mu_c, logvar_c = self.get_latent_domain(z_Ds, heart_name)
         z_c = self.reparameterization(mu_c, logvar_c)
 
