@@ -378,7 +378,6 @@ class DomainInvariantDynamics(BaseModel):
         # q(c | D)
         eval_y = one_hot_label(eval_label[:, 2] - 1, eval_x)
         z_x = self.signal_encoder(eval_x, heart_name, eval_y)
-        N, K, V, T = D.shape
         
         z_Ds = []
         if D is not None:
