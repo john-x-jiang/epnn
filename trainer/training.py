@@ -150,6 +150,7 @@ def train_epoch(model, epoch, loss, optimizer, data_loaders, hparams):
     signal_source = train_config['signal_source']
     omit = train_config['omit']
     k_shot = train_config.get('k_shot')
+    changable = train_config.get('changable')
     loss_type = train_config.get('loss_type')
     loss_func = hparams.loss
     total_loss = 0
@@ -209,6 +210,13 @@ def train_epoch(model, epoch, loss, optimizer, data_loaders, hparams):
                     D_source = D_x
                 elif signal_source == 'torso':
                     D_source = D_y
+                
+                if changable:
+                    K = D.shape[1]
+                    sub_K = np.random.randint(low=1, high=K+1, size=1)[0]
+                    D_source = D_source[:, :sub_K, :]
+                    D_label = D_label[:, :sub_K, :]
+                
                 physics_vars, statistic_vars = model(source, data_name, label, D_source, D_label)
             
             if loss_func == 'dmm_loss':
@@ -220,7 +228,8 @@ def train_epoch(model, epoch, loss, optimizer, data_loaders, hparams):
             elif loss_func == 'recon_loss' or loss_func == 'mse_loss':
                 x_, _ = physics_vars
                 total = loss(x_, x)
-            elif loss_func == 'domain_recon_loss':
+            elif loss_func == 'domain_recon_loss' \
+                or loss_func == 'domain_recon_loss_avg_D':
                 x_, D_ = physics_vars
                 mu_c, logvar_c, _, _ = statistic_vars
 
@@ -241,7 +250,8 @@ def train_epoch(model, epoch, loss, optimizer, data_loaders, hparams):
                 kl_loss += kl.item()
                 nll_p_loss += nll_p.item()
                 nll_q_loss += nll_q.item()
-            elif loss_func == 'domain_recon_loss':
+            elif loss_func == 'domain_recon_loss' \
+                or loss_func == 'domain_recon_loss_avg_D':
                 kl_loss += kl_c.item()
                 nll_p_loss += nll.item()
                 nll_q_loss += nll_0.item()
@@ -267,6 +277,7 @@ def valid_epoch(model, epoch, loss, data_loaders, hparams):
     signal_source = train_config['signal_source']
     omit = train_config['omit']
     k_shot = train_config.get('k_shot')
+    changable = train_config.get('changable')
     loss_type = train_config.get('loss_type')
     loss_func = hparams.loss
     total_loss = 0
@@ -322,6 +333,13 @@ def valid_epoch(model, epoch, loss, data_loaders, hparams):
                         D_source = D_x
                     elif signal_source == 'torso':
                         D_source = D_y
+                    
+                    if changable:
+                        K = D.shape[1]
+                        sub_K = np.random.randint(low=1, high=K+1, size=1)[0]
+                        D_source = D_source[:, :sub_K, :]
+                        D_label = D_label[:, :sub_K, :]
+
                     physics_vars, statistic_vars = model(source, data_name, label, D_source, D_label)
                 
                 if loss_func == 'dmm_loss':
@@ -333,7 +351,8 @@ def valid_epoch(model, epoch, loss, data_loaders, hparams):
                 elif loss_func == 'recon_loss' or loss_func == 'mse_loss':
                     x_, _ = physics_vars
                     total = loss(x_, x)
-                elif loss_func == 'domain_recon_loss':
+                elif loss_func == 'domain_recon_loss' \
+                    or loss_func == 'domain_recon_loss_avg_D':
                     x_, D_ = physics_vars
                     mu_c, logvar_c, _, _ = statistic_vars
 
@@ -352,7 +371,8 @@ def valid_epoch(model, epoch, loss, data_loaders, hparams):
                     kl_loss += kl.item()
                     nll_p_loss += nll_p.item()
                     nll_q_loss += nll_q.item()
-                elif loss_func == 'domain_recon_loss':
+                elif loss_func == 'domain_recon_loss' \
+                    or loss_func == 'domain_recon_loss_avg_D':
                     kl_loss += kl_c.item()
                     nll_p_loss += nll.item()
                     nll_q_loss += nll_0.item()

@@ -23,4 +23,3 @@ class HeartDomainDataLoader(DataLoader):
         self.dataset = HeartGraphDomainDataset(data_dir, data_name, signal_type, num_mesh, seq_len, split, k_shot=k_shot)
 
         super().__init__(self.dataset, batch_size, shuffle, drop_last=True, num_workers=num_workers)
-

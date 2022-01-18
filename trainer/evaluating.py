@@ -15,12 +15,12 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 def evaluate_driver(model, data_loaders, metrics, hparams, exp_dir, data_tag):
     eval_config = hparams.evaluating
-    loss_type = hparams.loss
+    loss_func = hparams.loss
 
-    evaluate_epoch(model, data_loaders, metrics, exp_dir, hparams, data_tag, eval_config, loss_type=loss_type)
+    evaluate_epoch(model, data_loaders, metrics, exp_dir, hparams, data_tag, eval_config, loss_func=loss_func)
 
 
-def evaluate_epoch(model, data_loaders, metrics, exp_dir, hparams, data_tag, eval_config, loss_type=None):
+def evaluate_epoch(model, data_loaders, metrics, exp_dir, hparams, data_tag, eval_config, loss_func=None):
     torso_len = eval_config['torso_len']
     signal_source = eval_config['signal_source']
     omit = eval_config['omit']
@@ -74,13 +74,14 @@ def evaluate_epoch(model, data_loaders, metrics, exp_dir, hparams, data_tag, eva
                         D_source = D_y
                     physics_vars, statistic_vars = model(source, data_name, label, D_source, D_label)
                 
-                if loss_type == 'dmm_loss':
+                if loss_func == 'dmm_loss':
                     x_q, x_p = physics_vars
                     x_ = x_p
-                elif loss_type == 'recon_loss' or loss_type == 'mse_loss':
+                elif loss_func == 'recon_loss' or loss_func == 'mse_loss':
                     x_, _ = physics_vars
 
-                elif loss_type == 'domain_recon_loss':
+                elif loss_func == 'domain_recon_loss' \
+                    or loss_func == 'domain_recon_loss_avg_D':
                     x_, _ = physics_vars
                 else:
                     raise NotImplemented
@@ -134,12 +135,12 @@ def evaluate_epoch(model, data_loaders, metrics, exp_dir, hparams, data_tag, eva
 
 def personalize_driver(model, eval_data_loaders, pred_data_loaders, metrics, hparams, exp_dir, eval_tag, pred_tag):
     eval_config = hparams.evaluating
-    loss_type = hparams.loss
+    loss_func = hparams.loss
 
-    personalize_epoch(model, eval_data_loaders, pred_data_loaders, metrics, exp_dir, hparams, eval_tag, pred_tag, eval_config, loss_type=loss_type)
+    personalize_epoch(model, eval_data_loaders, pred_data_loaders, metrics, exp_dir, hparams, eval_tag, pred_tag, eval_config, loss_func=loss_func)
 
 
-def personalize_epoch(model, eval_data_loaders, pred_data_loaders, metrics, exp_dir, hparams, eval_tag, pred_tag, eval_config, loss_type=None):
+def personalize_epoch(model, eval_data_loaders, pred_data_loaders, metrics, exp_dir, hparams, eval_tag, pred_tag, eval_config, loss_func=None):
     torso_len = eval_config['torso_len']
     signal_source = eval_config['signal_source']
     omit = eval_config['omit']
@@ -192,6 +193,8 @@ def personalize_epoch(model, eval_data_loaders, pred_data_loaders, metrics, exp_
 
                 if k_shot is None:
                     physics_vars, statistic_vars = model.personalization(source, eval_source, data_name, label, eval_label)
+                elif k_shot == 0:
+                    physics_vars, statistic_vars = model.personalization(source, eval_source, data_name, label, eval_label, None, None)
                 else:
                     D = eval_data.D
                     D_label = eval_data.D_label
@@ -209,13 +212,14 @@ def personalize_epoch(model, eval_data_loaders, pred_data_loaders, metrics, exp_
                         D_source = D_y
                     physics_vars, statistic_vars = model.personalization(source, eval_source, data_name, label, eval_label, D_source, D_label)
                 
-                if loss_type == 'dmm_loss':
+                if loss_func == 'dmm_loss':
                     x_q, x_p = physics_vars
                     x_ = x_p
-                elif loss_type == 'recon_loss' or loss_type == 'mse_loss':
+                elif loss_func == 'recon_loss' or loss_func == 'mse_loss':
                     x_, _ = physics_vars
 
-                elif loss_type == 'domain_recon_loss':
+                elif loss_func == 'domain_recon_loss' \
+                    or loss_func == 'domain_recon_loss_avg_D':
                     x_, _ = physics_vars
                 else:
                     raise NotImplemented

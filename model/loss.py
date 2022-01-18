@@ -69,6 +69,23 @@ def domain_recon_loss(x_, x, D_, D, mu_c, logvar_c, kl_annealing_factor=1, loss_
     return kl_m_c, nll_m, nll_m_D, total
 
 
+def domain_recon_loss_avg_D(x_, x, D_, D, mu_c, logvar_c, kl_annealing_factor=1, loss_type='mse'):
+    B, T = x.shape[0], x.shape[-1]
+    nll_raw = nll_loss(x_, x, 'none', loss_type)
+    nll_m = nll_raw.sum() / B
+
+    K = D.shape[1]
+    nll_raw_D = nll_loss(D_, D, 'none', loss_type)
+    nll_m_D = nll_raw_D.sum() / (B * K)
+
+    kl_raw_c = kl_div_stn(mu_c, logvar_c)
+    kl_m_c = kl_raw_c.sum() / B
+
+    total = kl_annealing_factor * kl_m_c + nll_m + nll_m_D
+
+    return kl_m_c, nll_m, nll_m_D, total
+
+
 def dmm_loss(x, x_q, x_p, mu1, var1, mu2, var2, kl_annealing_factor=1, r1=1, r2=0):
     B, T = x.shape[0], x.shape[-1]
     nll_raw_q = mse_loss(x_q, x[:, :, :T], 'none')
