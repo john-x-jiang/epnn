@@ -311,8 +311,8 @@ class DomainInvariantDynamics(BaseModel):
         
         return z_0
     
-    def time_modeling(self, x, z_0, z_c):
-        N, V, C, T = x.shape
+    def time_modeling(self, T, z_0, z_c):
+        N, V, C = z_0.shape
 
         z_prev = z_0
         z = []
@@ -335,12 +335,13 @@ class DomainInvariantDynamics(BaseModel):
 
     def forward(self, x, heart_name, label=None, D=None, D_label=None):
         # q(c | D)
+        N, V, T = x.shape
         y = one_hot_label(label[:, 2] - 1, x)
         z_x = self.signal_encoder(x, heart_name, y)
 
         z_Ds = []
         if D is not None:
-            N, K, V, T = D.shape
+            K = D.shape[1]
             D_ys = []
             for i in range(K):
                 D_yi = D_label[:, i, :]
@@ -358,7 +359,7 @@ class DomainInvariantDynamics(BaseModel):
         z_0 = self.get_latent_initial(y, heart_name)
 
         # p(x | z, c)
-        z = self.time_modeling(z_x, z_0, z_c)
+        z = self.time_modeling(T, z_0, z_c)
         x = self.decoder(z, heart_name)
 
         # reconstruction of D
@@ -491,8 +492,8 @@ class MetaDynamics(BaseModel):
         
         return z_0
     
-    def time_modeling(self, x, z_0, z_c):
-        N, V, C, T = x.shape
+    def time_modeling(self, T, z_0, z_c):
+        N, V, C = z_0.shape
 
         z_prev = z_0
         z = []
@@ -515,12 +516,13 @@ class MetaDynamics(BaseModel):
 
     def forward(self, x, heart_name, label=None, D=None, D_label=None):
         # q(c | D)
+        N, V, T = x.shape
         y = one_hot_label(label[:, 2] - 1, x)
         z_x = self.signal_encoder(x, heart_name, y)
 
         z_Ds = []
         if D is not None:
-            N, K, V, T = D.shape
+            K = D.shape[1]
             D_ys = []
             for i in range(K):
                 D_yi = D_label[:, i, :]
@@ -539,7 +541,7 @@ class MetaDynamics(BaseModel):
         z_0 = self.get_latent_initial(y, heart_name)
 
         # p(x | z, c)
-        z = self.time_modeling(z_x, z_0, z_c)
+        z = self.time_modeling(T, z_0, z_c)
         x = self.decoder(z, heart_name)
 
         # reconstruction of D
