@@ -367,7 +367,7 @@ class DomainInvariantDynamics(BaseModel):
         if D is not None:
             for i in range(K):
                 Dz_0 = self.get_latent_initial(D_ys[i], heart_name)
-                Dz = self.time_modeling(z_Ds[i], Dz_0, z_c)
+                Dz = self.time_modeling(T, Dz_0, z_c)
                 Dxi = self.decoder(Dz, heart_name)
                 Dxi = Dxi.view(N, -1, V, T)
                 D_.append(Dxi)
@@ -375,18 +375,19 @@ class DomainInvariantDynamics(BaseModel):
         
         return (x, D_), (mu_c, logvar_c, None, None)
     
-    def personalization(self, x, eval_x, heart_name, label=None, eval_label=None, D=None, D_label=None):        
+    def personalization(self, eval_x, heart_name, label=None, eval_label=None, D=None, D_label=None):        
         # q(c | D)
+        N, V, T = eval_x.shape
         eval_y = one_hot_label(eval_label[:, 2] - 1, eval_x)
         z_x = self.signal_encoder(eval_x, heart_name, eval_y)
         
         z_Ds = []
         if D is not None:
-            N, K, V, T = D.shape
+            K = D.shape[1]
             D_ys = []
             for i in range(K):
                 D_yi = D_label[:, i, :]
-                D_yi = one_hot_label(D_yi[:, 2] - 1, x)
+                D_yi = one_hot_label(D_yi[:, 2] - 1, eval_x)
                 D_ys.append(D_yi)
 
                 Di = D[:, i, :, :].view(N, V, T)
@@ -398,11 +399,11 @@ class DomainInvariantDynamics(BaseModel):
         z_c = self.reparameterization(mu_c, logvar_c)
 
         # q(z)
-        y = one_hot_label(label[:, 2] - 1, x)
+        y = one_hot_label(label[:, 2] - 1, eval_x)
         z_0 = self.get_latent_initial(y, heart_name)
 
         # p(x | z, c)
-        z = self.time_modeling(z_x, z_0, z_c)
+        z = self.time_modeling(T, z_0, z_c)
         x = self.decoder(z, heart_name)
         
         return (x, None), (mu_c, logvar_c, None, None)
@@ -549,7 +550,7 @@ class MetaDynamics(BaseModel):
         if D is not None:
             for i in range(K):
                 Dz_0 = self.get_latent_initial(D_ys[i], heart_name)
-                Dz = self.time_modeling(z_Ds[i], Dz_0, z_c)
+                Dz = self.time_modeling(T, Dz_0, z_c)
                 Dxi = self.decoder(Dz, heart_name)
                 Dxi = Dxi.view(N, -1, V, T)
                 D_.append(Dxi)
@@ -557,18 +558,19 @@ class MetaDynamics(BaseModel):
         
         return (x, D_), (mu_c, logvar_c, None, None)
     
-    def personalization(self, x, eval_x, heart_name, label=None, eval_label=None, D=None, D_label=None):        
+    def personalization(self, eval_x, heart_name, label=None, eval_label=None, D=None, D_label=None):        
         # q(c | D)
+        N, V, T = eval_x.shape
         eval_y = one_hot_label(eval_label[:, 2] - 1, eval_x)
         z_x = self.signal_encoder(eval_x, heart_name, eval_y)
         
         z_Ds = []
         if D is not None:
-            N, K, V, T = D.shape
+            K = D.shape[1]
             D_ys = []
             for i in range(K):
                 D_yi = D_label[:, i, :]
-                D_yi = one_hot_label(D_yi[:, 2] - 1, x)
+                D_yi = one_hot_label(D_yi[:, 2] - 1, eval_x)
                 D_ys.append(D_yi)
 
                 Di = D[:, i, :, :].view(N, V, T)
@@ -580,11 +582,11 @@ class MetaDynamics(BaseModel):
         z_c = self.reparameterization(mu_c, logvar_c)
 
         # q(z)
-        y = one_hot_label(label[:, 2] - 1, x)
+        y = one_hot_label(label[:, 2] - 1, eval_x)
         z_0 = self.get_latent_initial(y, heart_name)
 
         # p(x | z, c)
-        z = self.time_modeling(z_x, z_0, z_c)
+        z = self.time_modeling(T, z_0, z_c)
         x = self.decoder(z, heart_name)
         
         return (x, None), (mu_c, logvar_c, None, None)
