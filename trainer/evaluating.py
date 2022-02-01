@@ -194,7 +194,7 @@ def personalize_epoch(model, eval_data_loaders, pred_data_loaders, metrics, exp_
                 if k_shot is None:
                     physics_vars, statistic_vars = model.personalization(source, eval_source, data_name, label, eval_label)
                 elif k_shot == 0:
-                    physics_vars, statistic_vars = model.personalization(source, eval_source, data_name, label, eval_label, None, None)
+                    physics_vars, statistic_vars = model.personalization(eval_source, data_name, label, eval_label, None, None)
                 else:
                     D = eval_data.D
                     D_label = eval_data.D_label
@@ -210,7 +210,7 @@ def personalize_epoch(model, eval_data_loaders, pred_data_loaders, metrics, exp_
                         D_source = D_x
                     elif signal_source == 'torso':
                         D_source = D_y
-                    physics_vars, statistic_vars = model.personalization(source, eval_source, data_name, label, eval_label, D_source, D_label)
+                    physics_vars, statistic_vars = model.personalization(eval_source, data_name, label, eval_label, D_source, D_label)
                 
                 if loss_func == 'dmm_loss':
                     x_q, x_p = physics_vars
