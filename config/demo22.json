@@ -1,9 +1,9 @@
 {
     "exp_name": "demo",
-    "exp_id": "00",
+    "exp_id": "22",
     
     "model": {
-        "type": "DKF",
+        "type": "DomainInvariantDynamics",
         "args": {
             "num_channel": [
                 1,
@@ -14,74 +14,69 @@
                 128,
                 256
             ],
-            "obs_dim": 101,
-            "latent_feature": 64,
-            "rnn_type": "gcgru",
-            "orthogonal_init": true,
-            "rnn_bidirection": false,
-            "reverse_input": false,
-            "rnn_dim": 128,
-            "train_init": false,
-            "z_dim": 64,
-            "transition_dim": 128,
-            "sample": true,
-            "clip": true
+            "latent_dim": 64,
+            "obs_dim": 96,
+            "rnn_type": "gcgru"
         }
     },
 
     "data":{
-        "data_set": "HeartDataLoader",
+        "data_set": "HeartDomainDataLoader",
         "data_dir": "data/",
-        "data_names": ["EC"],
+        "data_names": ["EC_seg_10"],
         "signal_type": "egm",
         "num_meshes": [568],
         "seq_len": 101,
         "graph_method": "bipartite",
-        "num_workers": 1
+        "num_workers": 1,
+        "k_shot": 7
     },
 
     "optimizer": {
         "type": "Adam",
         "args": {
-            "lr": 5e-4,
+            "lr": 1e-3,
             "amsgrad": false,
             "betas": [0.9, 0.999]
         }
     },
     "lr_scheduler": 0,
 
-    "loss": "dmm_loss",
+    "loss": "domain_recon_loss",
     "metrics": [
         "mse", "tcc", "scc"
     ],
 
-    "batch_size": 8,
+    "batch_size": 2,
     "ecgi": 0,
     "device": 0,
     "training": {
-        "epochs": 500,
+        "epochs": 300,
         "overfit_single_batch": false,
 
         "save_period": 20,
-
         "signal_source": "heart",
+        "omit": 5,
+        "k_shot": 7,
 
         "monitor": "min val_loss",
-        "early_stop": 50,
+        "early_stop": 100,
 
         "torso_len": 120,
+        "loss_type": "mse",
 
         "kl_args":{
             "min_annealing_factor": 0.0,
-            "anneal_update": 1000,
-            "lambda": 1e-1
-        },
-        "r1": 1,
-        "r2": 0
+            "anneal_update": 200,
+            "elbo": "sum",
+            "lambda": 1e-4
+        }
     },
     "evaluating": {
         "signal_source": "heart",
-        "torso_len": 120
+        "torso_len": 120,
+        "omit": 5,
+        "k_shot": 7
     },
     
     "best_model": "m_best"

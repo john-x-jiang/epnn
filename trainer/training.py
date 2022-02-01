@@ -238,8 +238,13 @@ def train_epoch(model, epoch, loss, optimizer, data_loaders, hparams):
                 if k_shot == 0:
                     D_ = torch.zeros_like(x)
                     D_source = torch.zeros_like(x)
+                
+                domain_factor = train_config.get('domain_factor')
+                if domain_factor is None:
+                    domain_factor = 1
+                
                 kl_c, nll, nll_0, total = \
-                    loss(x_, x, D_, D_source, mu_c, logvar_c, kl_factor, loss_type)
+                    loss(x_, x, D_, D_source, mu_c, logvar_c, kl_factor, domain_factor, loss_type)
             else:
                 raise NotImplemented
 
@@ -361,8 +366,13 @@ def valid_epoch(model, epoch, loss, data_loaders, hparams):
                     if k_shot == 0:
                         D_ = torch.zeros_like(x)
                         D_source = torch.zeros_like(x)
+                    
+                    domain_factor = train_config.get('domain_factor')
+                    if domain_factor is None:
+                        domain_factor = 1
+                    
                     kl_c, nll, nll_0, total = \
-                        loss(x_, x, D_, D_source, mu_c, logvar_c, kl_factor, loss_type)
+                        loss(x_, x, D_, D_source, mu_c, logvar_c, kl_factor, domain_factor, loss_type)
                 else:
                     raise NotImplemented
 
