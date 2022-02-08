@@ -151,6 +151,7 @@ def train_epoch(model, epoch, loss, optimizer, data_loaders, hparams):
     omit = train_config['omit']
     k_shot = train_config.get('k_shot')
     changable = train_config.get('changable')
+    meta_dataset = train_config.get('meta_dataset')
     loss_type = train_config.get('loss_type')
     loss_func = hparams.loss
     total_loss = 0
@@ -163,6 +164,8 @@ def train_epoch(model, epoch, loss, optimizer, data_loaders, hparams):
     len_epoch = len(data_loaders[data_names[0]]) * len(data_names)
     for data_name in data_names:
         data_loader = data_loaders[data_name]
+        if epoch > 1 and meta_dataset:
+            data_loader = data_loader.next()
         for idx, data in enumerate(data_loader):
             signal, label = data.x, data.y
             signal = signal.to(device)
@@ -193,8 +196,6 @@ def train_epoch(model, epoch, loss, optimizer, data_loaders, hparams):
             
             if k_shot is None:
                 physics_vars, statistic_vars = model(source, data_name, label)
-            elif k_shot == 0:
-                physics_vars, statistic_vars = model(source, data_name, label, None, None)
             else:
                 D = data.D
                 D_label = data.D_label
@@ -228,23 +229,24 @@ def train_epoch(model, epoch, loss, optimizer, data_loaders, hparams):
             elif loss_func == 'recon_loss' or loss_func == 'mse_loss':
                 x_, _ = physics_vars
                 total = loss(x_, x)
-            elif loss_func == 'domain_recon_loss' \
-                or loss_func == 'domain_recon_loss_avg_D':
+            elif loss_func == 'domain_recon_loss':
                 x_, D_ = physics_vars
                 mu_c, logvar_c, _, _ = statistic_vars
 
                 if loss_type is None:
                     loss_type = 'mse'
-                if k_shot == 0:
-                    D_ = torch.zeros_like(x)
-                    D_source = torch.zeros_like(x)
-                
-                domain_factor = train_config.get('domain_factor')
-                if domain_factor is None:
-                    domain_factor = 1
                 
                 kl_c, nll, nll_0, total = \
-                    loss(x_, x, D_, D_source, mu_c, logvar_c, kl_factor, domain_factor, loss_type)
+                    loss(x_, x, D_, D_source, mu_c, logvar_c, kl_factor, loss_type)
+            elif loss_func == 'domain_loss':
+                x_, _ = physics_vars
+                mu_c, logvar_c, mu_c_full, logvar_c_full = statistic_vars
+
+                if loss_type is None:
+                    loss_type = 'mse'
+                
+                kl_c, nll, kl_0, total = \
+                    loss(x_, x, mu_c, logvar_c, mu_c_full, logvar_c_full, kl_factor, loss_type, r1, r2)
             else:
                 raise NotImplemented
 
@@ -255,11 +257,14 @@ def train_epoch(model, epoch, loss, optimizer, data_loaders, hparams):
                 kl_loss += kl.item()
                 nll_p_loss += nll_p.item()
                 nll_q_loss += nll_q.item()
-            elif loss_func == 'domain_recon_loss' \
-                or loss_func == 'domain_recon_loss_avg_D':
+            elif loss_func == 'domain_recon_loss':
                 kl_loss += kl_c.item()
                 nll_p_loss += nll.item()
                 nll_q_loss += nll_0.item()
+            elif loss_func == 'domain_loss':
+                kl_loss += kl_c.item()
+                nll_p_loss += nll.item()
+                nll_q_loss += kl_0.item()
             n_steps += 1
 
             optimizer.step()
@@ -283,6 +288,7 @@ def valid_epoch(model, epoch, loss, data_loaders, hparams):
     omit = train_config['omit']
     k_shot = train_config.get('k_shot')
     changable = train_config.get('changable')
+    meta_dataset = train_config.get('meta_dataset')
     loss_type = train_config.get('loss_type')
     loss_func = hparams.loss
     total_loss = 0
@@ -292,10 +298,11 @@ def valid_epoch(model, epoch, loss, data_loaders, hparams):
 
     with torch.no_grad():
         data_names = list(data_loaders.keys())
-        random.shuffle(data_names)
         len_epoch = len(data_loaders[data_names[0]]) * len(data_names)
         for data_name in data_names:
             data_loader = data_loaders[data_name]
+            if epoch > 1 and meta_dataset:
+                data_loader = data_loader.next()
             for idx, data in enumerate(data_loader):
                 signal, label = data.x, data.y
                 signal = signal.to(device)
@@ -321,8 +328,6 @@ def valid_epoch(model, epoch, loss, data_loaders, hparams):
                 
                 if k_shot is None:
                     physics_vars, statistic_vars = model(source, data_name, label)
-                elif k_shot == 0:
-                    physics_vars, statistic_vars = model(source, data_name, label, None, None)
                 else:
                     D = data.D
                     D_label = data.D_label
@@ -356,23 +361,24 @@ def valid_epoch(model, epoch, loss, data_loaders, hparams):
                 elif loss_func == 'recon_loss' or loss_func == 'mse_loss':
                     x_, _ = physics_vars
                     total = loss(x_, x)
-                elif loss_func == 'domain_recon_loss' \
-                    or loss_func == 'domain_recon_loss_avg_D':
+                elif loss_func == 'domain_recon_loss':
                     x_, D_ = physics_vars
                     mu_c, logvar_c, _, _ = statistic_vars
 
                     if loss_type is None:
                         loss_type = 'mse'
-                    if k_shot == 0:
-                        D_ = torch.zeros_like(x)
-                        D_source = torch.zeros_like(x)
-                    
-                    domain_factor = train_config.get('domain_factor')
-                    if domain_factor is None:
-                        domain_factor = 1
                     
                     kl_c, nll, nll_0, total = \
-                        loss(x_, x, D_, D_source, mu_c, logvar_c, kl_factor, domain_factor, loss_type)
+                        loss(x_, x, D_, D_source, mu_c, logvar_c, kl_factor, loss_type)
+                elif loss_func == 'domain_loss':
+                    x_, _ = physics_vars
+                    mu_c, logvar_c, mu_c_full, logvar_c_full = statistic_vars
+
+                    if loss_type is None:
+                        loss_type = 'mse'
+                    
+                    kl_c, nll, kl_0, total = \
+                        loss(x_, x, mu_c, logvar_c, mu_c_full, logvar_c_full, kl_factor, loss_type, r1, r2)
                 else:
                     raise NotImplemented
 
@@ -381,11 +387,14 @@ def valid_epoch(model, epoch, loss, data_loaders, hparams):
                     kl_loss += kl.item()
                     nll_p_loss += nll_p.item()
                     nll_q_loss += nll_q.item()
-                elif loss_func == 'domain_recon_loss' \
-                    or loss_func == 'domain_recon_loss_avg_D':
+                elif loss_func == 'domain_recon_loss':
                     kl_loss += kl_c.item()
                     nll_p_loss += nll.item()
                     nll_q_loss += nll_0.item()
+                elif loss_func == 'domain_loss':
+                    kl_loss += kl_c.item()
+                    nll_p_loss += nll.item()
+                    nll_q_loss += kl_0.item()
                 n_steps += 1
 
     total_loss /= n_steps

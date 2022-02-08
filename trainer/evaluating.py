@@ -81,7 +81,7 @@ def evaluate_epoch(model, data_loaders, metrics, exp_dir, hparams, data_tag, eva
                     x_, _ = physics_vars
 
                 elif loss_func == 'domain_recon_loss' \
-                    or loss_func == 'domain_recon_loss_avg_D':
+                    or loss_func == 'domain_loss':
                     x_, _ = physics_vars
                 else:
                     raise NotImplemented
@@ -219,7 +219,7 @@ def personalize_epoch(model, eval_data_loaders, pred_data_loaders, metrics, exp_
                     x_, _ = physics_vars
 
                 elif loss_func == 'domain_recon_loss' \
-                    or loss_func == 'domain_recon_loss_avg_D':
+                    or loss_func == 'domain_loss':
                     x_, _ = physics_vars
                 else:
                     raise NotImplemented

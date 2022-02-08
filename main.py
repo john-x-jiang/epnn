@@ -214,7 +214,6 @@ def main(hparams, checkpt, stage, evaluation='test', prediction=None):
 
     if stage == 1:
         copy2(json_path, exp_dir)
-        # copy model to exp_dir
 
         # load data
         train_loaders, valid_loaders = data_loading(hparams, training=True)

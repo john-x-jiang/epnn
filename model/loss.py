@@ -22,16 +22,16 @@ def nll_loss(x_, x, reduction='none', loss_type='mse'):
         raise NotImplemented
 
 
-def kl_div(mu1, var1, mu2=None, var2=None):
+def kl_div(mu1, logvar1, mu2=None, logvar2=None):
     if mu2 is None:
         mu2 = torch.zeros_like(mu1)
-    if var2 is None:
-        var2 = torch.zeros_like(mu1)
+    if logvar2 is None:
+        logvar2 = torch.zeros_like(mu1)
 
     return 0.5 * (
-        var2 - var1 + (
-            torch.exp(var1) + (mu1 - mu2).pow(2)
-        ) / torch.exp(var2) - 1)
+        logvar2 - logvar1 + (
+            torch.exp(logvar1) + (mu1 - mu2).pow(2)
+        ) / torch.exp(logvar2) - 1)
 
 
 def kl_div_stn(mu, logvar):
@@ -69,21 +69,20 @@ def domain_recon_loss(x_, x, D_, D, mu_c, logvar_c, kl_annealing_factor=1, loss_
     return kl_m_c, nll_m, nll_m_D, total
 
 
-def domain_recon_loss_avg_D(x_, x, D_, D, mu_c, logvar_c, kl_annealing_factor=1, domain_factor=1, loss_type='mse'):
+def domain_loss(x_, x, mu_c, logvar_c, mu_c_full, logvar_c_full, kl_annealing_factor=1, loss_type='mse', r1=1, r2=0):
     B, T = x.shape[0], x.shape[-1]
     nll_raw = nll_loss(x_, x, 'none', loss_type)
     nll_m = nll_raw.sum() / B
 
-    K = D.shape[1]
-    nll_raw_D = nll_loss(D_, D, 'none', loss_type)
-    nll_m_D = nll_raw_D.sum() / (B * K)
-
-    kl_raw_c = kl_div_stn(mu_c, logvar_c)
+    kl_raw_c = kl_div(mu_c_full, logvar_c_full, mu_c, logvar_c)
     kl_m_c = kl_raw_c.sum() / B
 
-    total = kl_annealing_factor * kl_m_c + nll_m + nll_m_D * domain_factor
+    kl_raw_0 = kl_div_stn(mu_c, logvar_c)
+    kl_m_0 = kl_raw_0.sum() / B
 
-    return kl_m_c, nll_m, nll_m_D, total
+    total = kl_annealing_factor * (r1 * kl_m_c + r2 * kl_m_0) + nll_m
+
+    return kl_m_c, nll_m, kl_m_0, total
 
 
 def dmm_loss(x, x_q, x_p, mu1, var1, mu2, var2, kl_annealing_factor=1, r1=1, r2=0):

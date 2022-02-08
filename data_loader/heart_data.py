@@ -135,36 +135,121 @@ class HeartGraphDomainDataset(Dataset):
         x = self.data[[idx], :, :]
         y = self.label[[idx]]
 
-        if self.k_shot != 0:
-            D = []
-            D_label = []
-            scar = y[:, 1].numpy()[0]
-            scar_samples = self.scar_idx[scar]
-            scar_samples = np.delete(scar_samples, np.where(scar_samples == idx)[0])
-            selected_idx = np.random.choice(len(scar_samples), self.k_shot, replace=False)
-            selected_samples = scar_samples[selected_idx]
-            
-            for item in selected_samples:
-                D.append(self.data[[item], :, :])
-                D_label.append(self.label[[item]])
-            D = torch.cat(D, dim=1)
-            D_label = torch.cat(D_label, dim=0)
-            D_label = D_label.view(1, self.k_shot, -1)
+        D = []
+        D_label = []
+        scar = y[:, 1].numpy()[0]
+        scar_samples = self.scar_idx[scar]
+        scar_samples = np.delete(scar_samples, np.where(scar_samples == idx)[0])
+        selected_idx = np.random.choice(len(scar_samples), self.k_shot, replace=False)
+        selected_samples = scar_samples[selected_idx]
+        
+        for item in selected_samples:
+            D.append(self.data[[item], :, :])
+            D_label.append(self.label[[item]])
+        D = torch.cat(D, dim=1)
+        D_label = torch.cat(D_label, dim=0)
+        D_label = D_label.view(1, self.k_shot, -1)
 
-            sample = DataWithDomain(
-                x=x,
-                y=y,
-                pos=self.heart_name,
-                D=D,
-                D_label=D_label
-            )
-        else:
-            sample = Data(
-                x=x,
-                y=y,
-                pos=self.heart_name
-            )
+        sample = DataWithDomain(
+            x=x,
+            y=y,
+            pos=self.heart_name,
+            D=D,
+            D_label=D_label
+        )
         return sample
+
+
+class HeartEpisodicDataset(Dataset):
+    def __init__(self,
+                 root,
+                 data_name,
+                 signal_type='egm',
+                 num_mesh=None,
+                 seq_len=None,
+                 split='train',
+                 subset=1,
+                 k_shot=2):
+        self.root = osp.expanduser(osp.normpath(root))
+        self.raw_dir = osp.join(self.root, 'signal/{}/'.format(data_name))
+        self.k_shot = k_shot
+
+        filename = '{}_{}_{}.mat'.format(split, signal_type, num_mesh)
+        self.data_path = osp.join(self.raw_dir, filename)
+        matFiles = scipy.io.loadmat(self.data_path, squeeze_me=True, struct_as_record=False)
+        dataset = matFiles['params']
+        label = matFiles['label']
+
+        dataset = dataset.transpose(2, 0, 1)
+
+        N = dataset.shape[0]
+        if subset == 1:
+            index = np.arange(N)
+        elif subset == 0:
+            raise RuntimeError('No data')
+        else:
+            indices = list(range(N))
+            np.random.shuffle(indices)
+            split = int(np.floor(subset * N))
+            sub_index = indices[:split]
+            dataset = dataset[sub_index, :, :]
+            index = np.arange(dataset.shape[1])
+        
+        label = label.astype(int)
+        self.label = torch.from_numpy(label[index])
+        self.data = torch.from_numpy(dataset[index, :, :]).float()
+        # self.corMfree = corMfree
+        self.heart_name = data_name
+
+        scar = self.label[:, 1]
+        scar = np.unique(scar)
+        self.scar_idx = {}
+        for s in scar:
+            idx = np.where(self.label[:, 1] == s)[0]
+            self.scar_idx[s] = idx
+
+        print('final data size: {}'.format(self.data.shape[0]))
+        np.random.seed(0)
+        self.split()
+
+    def __len__(self):
+        # return (self.data.shape[0])
+        return self.x_qry.shape[0]
+
+    def __getitem__(self, idx):
+        x = self.x_qry[[idx], :, :]
+        y = self.y_qry[[idx]]
+
+        scar = y[:, 1].numpy()[0]
+        D_x = self.x_spt[scar]
+        D_y = self.y_spt[scar]
+        D_y = D_y.view(1, self.k_shot, -1)
+
+        sample = DataWithDomain(
+            x=x,
+            y=y,
+            pos=self.heart_name,
+            D=D_x,
+            D_label=D_y
+        )
+        return sample
+    
+    def split(self):
+        self.x_spt, self.y_spt = {}, {}
+        self.x_qry, self.y_qry = [], []
+        for scar_id, samples in self.scar_idx.items():
+            sample_idx = np.arange(0, len(samples))
+            np.random.shuffle(sample_idx)
+            spt_idx = np.sort(sample_idx[0:self.k_shot])
+            self.x_spt[scar_id] = self.data[samples[spt_idx], :]
+            self.y_spt[scar_id] = self.label[samples[spt_idx], :]
+
+            qry_idx = sample_idx[self.k_shot:]
+            self.x_qry.append(self.data[samples[qry_idx], :])
+            self.y_qry.append(self.label[samples[qry_idx], :])
+        
+        self.x_qry = torch.cat(self.x_qry, dim=0)
+        self.y_qry = torch.cat(self.y_qry, dim=0)
 
 
 class HeartEmptyGraphDataset(Dataset):
