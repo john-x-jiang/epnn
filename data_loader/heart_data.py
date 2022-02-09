@@ -173,6 +173,7 @@ class HeartEpisodicDataset(Dataset):
         self.root = osp.expanduser(osp.normpath(root))
         self.raw_dir = osp.join(self.root, 'signal/{}/'.format(data_name))
         self.k_shot = k_shot
+        self.is_train = split
 
         filename = '{}_{}_{}.mat'.format(split, signal_type, num_mesh)
         self.data_path = osp.join(self.raw_dir, filename)
@@ -217,8 +218,12 @@ class HeartEpisodicDataset(Dataset):
         return self.x_qry.shape[0]
 
     def __getitem__(self, idx):
-        x = self.x_qry[[idx], :, :]
-        y = self.y_qry[[idx]]
+        if self.is_train == 'train':
+            x = self.x_qry[[idx], :, :]
+            y = self.y_qry[[idx]]
+        else:
+            x = self.data[[idx], :, :]
+            y = self.label[[idx]]
 
         scar = y[:, 1].numpy()[0]
         D_x = self.x_spt[scar]
