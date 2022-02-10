@@ -239,14 +239,15 @@ def train_epoch(model, epoch, loss, optimizer, data_loaders, hparams):
                 kl_c, nll, nll_0, total = \
                     loss(x_, x, D_, D_source, mu_c, logvar_c, kl_factor, loss_type)
             elif loss_func == 'domain_loss':
-                x_, _ = physics_vars
+                x_, D_ = physics_vars
                 mu_c, logvar_c, mu_c_full, logvar_c_full = statistic_vars
 
                 if loss_type is None:
                     loss_type = 'mse'
+                l = train_config.get('l')
                 
                 kl_c, nll, kl_0, total = \
-                    loss(x_, x, mu_c, logvar_c, mu_c_full, logvar_c_full, kl_factor, loss_type, r1, r2)
+                    loss(x_, x, D_, D_source, mu_c, logvar_c, mu_c_full, logvar_c_full, kl_factor, loss_type, r1, r2, l)
             else:
                 raise NotImplemented
 
@@ -371,14 +372,15 @@ def valid_epoch(model, epoch, loss, data_loaders, hparams):
                     kl_c, nll, nll_0, total = \
                         loss(x_, x, D_, D_source, mu_c, logvar_c, kl_factor, loss_type)
                 elif loss_func == 'domain_loss':
-                    x_, _ = physics_vars
+                    x_, D_ = physics_vars
                     mu_c, logvar_c, mu_c_full, logvar_c_full = statistic_vars
 
                     if loss_type is None:
                         loss_type = 'mse'
+                    l = train_config.get('l')
                     
                     kl_c, nll, kl_0, total = \
-                        loss(x_, x, mu_c, logvar_c, mu_c_full, logvar_c_full, kl_factor, loss_type, r1, r2)
+                        loss(x_, x, D_, D_source, mu_c, logvar_c, mu_c_full, logvar_c_full, kl_factor, loss_type, r1, r2, l)
                 else:
                     raise NotImplemented
 

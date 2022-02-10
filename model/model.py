@@ -414,12 +414,14 @@ class MetaDynamics(BaseModel):
                  num_channel,
                  latent_dim,
                  obs_dim,
-                 rnn_type):
+                 rnn_type,
+                 target_in=False):
         super().__init__()
         self.nf = num_channel
         self.latent_dim = latent_dim
         self.obs_dim = obs_dim
         self.rnn_type = rnn_type
+        self.target_in = target_in
 
         # encoder
         self.signal_encoder = Encoder(num_channel, latent_dim, cond=True)
@@ -546,7 +548,19 @@ class MetaDynamics(BaseModel):
         z_Ds.append(z_x)
         mu_c_full, logvar_c_full = self.get_latent_domain(z_Ds, heart_name)
 
-        return (x, None), (mu_c, logvar_c, mu_c_full, logvar_c_full)
+        if self.target_in:
+            D_ = []
+            for i in range(K):
+                Dz_0 = self.get_latent_initial(D_ys[i], heart_name)
+                Dz = self.time_modeling(T, Dz_0, z_c)
+                Dxi = self.decoder(Dz, heart_name)
+                Dxi = Dxi.view(N, -1, V, T)
+                D_.append(Dxi)
+            D_ = torch.cat(D_, dim=1)
+        else:
+            D_ = None
+
+        return (x, D_), (mu_c, logvar_c, mu_c_full, logvar_c_full)
     
     def personalization(self, eval_x, heart_name, label, eval_label, D, D_label):        
         # q(c | D)
