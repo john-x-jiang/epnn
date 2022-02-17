@@ -238,7 +238,7 @@ def train_epoch(model, epoch, loss, optimizer, data_loaders, hparams):
                 
                 kl_c, nll, nll_0, total = \
                     loss(x_, x, D_, D_source, mu_c, logvar_c, kl_factor, loss_type)
-            elif loss_func == 'domain_loss':
+            elif loss_func == 'domain_loss' or loss_func == 'domain_loss_avg_D':
                 x_, D_ = physics_vars
                 mu_c, logvar_c, mu_c_full, logvar_c_full = statistic_vars
 
@@ -262,7 +262,7 @@ def train_epoch(model, epoch, loss, optimizer, data_loaders, hparams):
                 kl_loss += kl_c.item()
                 nll_p_loss += nll.item()
                 nll_q_loss += nll_0.item()
-            elif loss_func == 'domain_loss':
+            elif loss_func == 'domain_loss' or loss_func == 'domain_loss_avg_D':
                 kl_loss += kl_c.item()
                 nll_p_loss += nll.item()
                 nll_q_loss += kl_0.item()
@@ -371,7 +371,7 @@ def valid_epoch(model, epoch, loss, data_loaders, hparams):
                     
                     kl_c, nll, nll_0, total = \
                         loss(x_, x, D_, D_source, mu_c, logvar_c, kl_factor, loss_type)
-                elif loss_func == 'domain_loss':
+                elif loss_func == 'domain_loss' or loss_func == 'domain_loss_avg_D':
                     x_, D_ = physics_vars
                     mu_c, logvar_c, mu_c_full, logvar_c_full = statistic_vars
 
@@ -393,7 +393,7 @@ def valid_epoch(model, epoch, loss, data_loaders, hparams):
                     kl_loss += kl_c.item()
                     nll_p_loss += nll.item()
                     nll_q_loss += nll_0.item()
-                elif loss_func == 'domain_loss':
+                elif loss_func == 'domain_loss' or loss_func == 'domain_loss_avg_D':
                     kl_loss += kl_c.item()
                     nll_p_loss += nll.item()
                     nll_q_loss += kl_0.item()

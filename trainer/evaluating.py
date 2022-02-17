@@ -25,6 +25,7 @@ def evaluate_epoch(model, data_loaders, metrics, exp_dir, hparams, data_tag, eva
     signal_source = eval_config['signal_source']
     omit = eval_config['omit']
     k_shot = eval_config.get('k_shot')
+    changable = eval_config.get('changable')
     model.eval()
     n_steps = 0
     mses = {}
@@ -55,8 +56,6 @@ def evaluate_epoch(model, data_loaders, metrics, exp_dir, hparams, data_tag, eva
 
                 if k_shot is None:
                     physics_vars, statistic_vars = model(source, data_name, label)
-                elif k_shot == 0:
-                    physics_vars, statistic_vars = model(source, data_name, label, None, None)
                 else:
                     D = data.D
                     D_label = data.D_label
@@ -72,6 +71,13 @@ def evaluate_epoch(model, data_loaders, metrics, exp_dir, hparams, data_tag, eva
                         D_source = D_x
                     elif signal_source == 'torso':
                         D_source = D_y
+                    
+                    if changable:
+                        K = D.shape[1]
+                        sub_K = np.random.randint(low=1, high=K+1, size=1)[0]
+                        D_source = D_source[:, :sub_K, :]
+                        D_label = D_label[:, :sub_K, :]
+
                     physics_vars, statistic_vars = model(source, data_name, label, D_source, D_label)
                 
                 if loss_func == 'dmm_loss':
@@ -81,7 +87,8 @@ def evaluate_epoch(model, data_loaders, metrics, exp_dir, hparams, data_tag, eva
                     x_, _ = physics_vars
 
                 elif loss_func == 'domain_recon_loss' \
-                    or loss_func == 'domain_loss':
+                    or loss_func == 'domain_loss' \
+                    or loss_func == 'domain_loss_avg_D':
                     x_, _ = physics_vars
                 else:
                     raise NotImplemented
@@ -145,6 +152,7 @@ def personalize_epoch(model, eval_data_loaders, pred_data_loaders, metrics, exp_
     signal_source = eval_config['signal_source']
     omit = eval_config['omit']
     k_shot = eval_config.get('k_shot')
+    changable = eval_config.get('changable')
     model.eval()
     n_steps = 0
     mses = {}
@@ -193,8 +201,6 @@ def personalize_epoch(model, eval_data_loaders, pred_data_loaders, metrics, exp_
 
                 if k_shot is None:
                     physics_vars, statistic_vars = model.personalization(source, eval_source, data_name, label, eval_label)
-                elif k_shot == 0:
-                    physics_vars, statistic_vars = model.personalization(eval_source, data_name, label, eval_label, None, None)
                 else:
                     D = eval_data.D
                     D_label = eval_data.D_label
@@ -210,6 +216,13 @@ def personalize_epoch(model, eval_data_loaders, pred_data_loaders, metrics, exp_
                         D_source = D_x
                     elif signal_source == 'torso':
                         D_source = D_y
+                    
+                    if changable:
+                        K = D.shape[1]
+                        sub_K = np.random.randint(low=1, high=K+1, size=1)[0]
+                        D_source = D_source[:, :sub_K, :]
+                        D_label = D_label[:, :sub_K, :]
+
                     physics_vars, statistic_vars = model.personalization(eval_source, data_name, label, eval_label, D_source, D_label)
                 
                 if loss_func == 'dmm_loss':
@@ -219,7 +232,8 @@ def personalize_epoch(model, eval_data_loaders, pred_data_loaders, metrics, exp_
                     x_, _ = physics_vars
 
                 elif loss_func == 'domain_recon_loss' \
-                    or loss_func == 'domain_loss':
+                    or loss_func == 'domain_loss' \
+                    or loss_func == 'domain_loss_avg_D':
                     x_, _ = physics_vars
                 else:
                     raise NotImplemented
