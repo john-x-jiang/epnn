@@ -146,8 +146,6 @@ def train(hparams, checkpt, train_loaders, valid_loaders, exp_dir):
         optimizer.load_state_dict(checkpt['optimizer'])
 
     # lr scheduler
-    # lr_scheduler = None if not hparams.lr_scheduler else getattr(optim.lr_scheduler, hparams.lr_scheduler)
-    import ipdb; ipdb.set_trace()
     if not hparams.lr_scheduler or hparams.lr_scheduler == 0:
         lr_scheduler = None
     else:
