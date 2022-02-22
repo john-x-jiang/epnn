@@ -10,11 +10,12 @@ from torch_geometric.data import Data
 
 
 class DataWithDomain(Data):
-    def __init__(self, x, y, pos, D=None, D_label=None):
+    def __init__(self, x, y, pos, mask=None, D=None, D_label=None):
         super().__init__()
         self.x = x
         self.y = y
         self.pos = pos
+        self.mask = mask
         self.D = D
         self.D_label = D_label
 
@@ -180,6 +181,7 @@ class HeartEpisodicDataset(Dataset):
         matFiles = scipy.io.loadmat(self.data_path, squeeze_me=True, struct_as_record=False)
         dataset = matFiles['params']
         label = matFiles['label']
+        mask = matFiles['inf_idx']
 
         dataset = dataset.transpose(2, 0, 1)
 
@@ -200,6 +202,7 @@ class HeartEpisodicDataset(Dataset):
         self.label = torch.from_numpy(label[index])
         self.data = torch.from_numpy(dataset[index, :, :]).float()
         # self.corMfree = corMfree
+        self.mask = mask
         self.heart_name = data_name
 
         scar = self.label[:, 1]
@@ -234,6 +237,7 @@ class HeartEpisodicDataset(Dataset):
             x=x,
             y=y,
             pos=self.heart_name,
+            mask=self.mask,
             D=D_x,
             D_label=D_y
         )

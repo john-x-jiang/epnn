@@ -151,6 +151,7 @@ def train_epoch(model, epoch, loss, optimizer, data_loaders, hparams):
     omit = train_config['omit']
     k_shot = train_config.get('k_shot')
     changable = train_config.get('changable')
+    sparse = train_config.get('sparse')
     meta_dataset = train_config.get('meta_dataset')
     loss_type = train_config.get('loss_type')
     loss_func = hparams.loss
@@ -218,7 +219,26 @@ def train_epoch(model, epoch, loss, optimizer, data_loaders, hparams):
                     D_source = D_source[:, :sub_K, :]
                     D_label = D_label[:, :sub_K, :]
                 
-                physics_vars, statistic_vars = model(source, data_name, label, D_source, D_label)
+                if sparse is not None:
+                    mask = data.mask[0]
+                    in_source = source.clone()
+                    in_D_source = D_source.clone()
+                    in_source[:, mask != 3, :] = 0
+                    in_D_source[:, :, mask != 3, :] = 0
+                    
+                    epi = np.where(mask == 3)[0]
+                    selected_idx = np.arange(0, epi.shape[0], sparse)
+                    if sparse > 0:
+                        selected_idx = np.delete(np.arange(0, epi.shape[0]), selected_idx)
+                    
+                    selected_epi = epi[selected_idx]
+                    in_source[:, selected_epi, :] = 0
+                    in_D_source[:, :, selected_epi, :] = 0
+                else:
+                    in_source = source
+                    in_D_source = D_source
+
+                physics_vars, statistic_vars = model(in_source, data_name, label, in_D_source, D_label)
             
             if loss_func == 'dmm_loss':
                 x_q, x_p = physics_vars
@@ -289,6 +309,7 @@ def valid_epoch(model, epoch, loss, data_loaders, hparams):
     omit = train_config['omit']
     k_shot = train_config.get('k_shot')
     changable = train_config.get('changable')
+    sparse = train_config.get('sparse')
     meta_dataset = train_config.get('meta_dataset')
     loss_type = train_config.get('loss_type')
     loss_func = hparams.loss
@@ -350,8 +371,27 @@ def valid_epoch(model, epoch, loss, data_loaders, hparams):
                         sub_K = np.random.randint(low=1, high=K+1, size=1)[0]
                         D_source = D_source[:, :sub_K, :]
                         D_label = D_label[:, :sub_K, :]
+                    
+                    if sparse is not None:
+                        mask = data.mask[0]
+                        in_source = source.clone()
+                        in_D_source = D_source.clone()
+                        in_source[:, mask != 3, :] = 0
+                        in_D_source[:, :, mask != 3, :] = 0
+                        
+                        epi = np.where(mask == 3)[0]
+                        selected_idx = np.arange(0, epi.shape[0], sparse)
+                        if sparse > 0:
+                            selected_idx = np.delete(np.arange(0, epi.shape[0]), selected_idx)
+                        
+                        selected_epi = epi[selected_idx]
+                        in_source[:, selected_epi, :] = 0
+                        in_D_source[:, :, selected_epi, :] = 0
+                    else:
+                        in_source = source
+                        in_D_source = D_source
 
-                    physics_vars, statistic_vars = model(source, data_name, label, D_source, D_label)
+                    physics_vars, statistic_vars = model(in_source, data_name, label, in_D_source, D_label)
                 
                 if loss_func == 'dmm_loss':
                     x_q, x_p = physics_vars

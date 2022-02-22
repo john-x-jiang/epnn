@@ -566,7 +566,7 @@ class MetaDynamics(BaseModel):
         # q(c | D)
         N, V, T = eval_x.shape
         eval_y = one_hot_label(eval_label[:, 2] - 1, eval_x)
-        z_x = self.signal_encoder(eval_x, heart_name, eval_y)
+        # z_x = self.signal_encoder(eval_x, heart_name, eval_y)
         
         z_Ds = []
         K = D.shape[1]

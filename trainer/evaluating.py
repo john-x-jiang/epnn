@@ -26,6 +26,7 @@ def evaluate_epoch(model, data_loaders, metrics, exp_dir, hparams, data_tag, eva
     omit = eval_config['omit']
     k_shot = eval_config.get('k_shot')
     changable = eval_config.get('changable')
+    sparse = train_config.get('sparse')
     model.eval()
     n_steps = 0
     mses = {}
@@ -77,8 +78,27 @@ def evaluate_epoch(model, data_loaders, metrics, exp_dir, hparams, data_tag, eva
                         sub_K = np.random.randint(low=1, high=K+1, size=1)[0]
                         D_source = D_source[:, :sub_K, :]
                         D_label = D_label[:, :sub_K, :]
+                    
+                    if sparse is not None:
+                        mask = data.mask[0]
+                        in_source = source.clone()
+                        in_D_source = D_source.clone()
+                        in_source[:, mask != 3, :] = 0
+                        in_D_source[:, :, mask != 3, :] = 0
+                        
+                        epi = np.where(mask == 3)[0]
+                        selected_idx = np.arange(0, epi.shape[0], sparse)
+                        if sparse > 0:
+                            selected_idx = np.delete(np.arange(0, epi.shape[0]), selected_idx)
+                        
+                        selected_epi = epi[selected_idx]
+                        in_source[:, selected_epi, :] = 0
+                        in_D_source[:, :, selected_epi, :] = 0
+                    else:
+                        in_source = source
+                        in_D_source = D_source
 
-                    physics_vars, statistic_vars = model(source, data_name, label, D_source, D_label)
+                    physics_vars, statistic_vars = model(in_source, data_name, label, in_D_source, D_label)
                 
                 if loss_func == 'dmm_loss':
                     x_q, x_p = physics_vars
@@ -154,6 +174,7 @@ def personalize_epoch(model, eval_data_loaders, pred_data_loaders, metrics, exp_
     omit = eval_config['omit']
     k_shot = eval_config.get('k_shot')
     changable = eval_config.get('changable')
+    sparse = train_config.get('sparse')
     model.eval()
     n_steps = 0
     mses = {}
@@ -223,8 +244,24 @@ def personalize_epoch(model, eval_data_loaders, pred_data_loaders, metrics, exp_
                         sub_K = np.random.randint(low=1, high=K+1, size=1)[0]
                         D_source = D_source[:, :sub_K, :]
                         D_label = D_label[:, :sub_K, :]
+                    
+                    if sparse is not None:
+                        mask = data.mask[0]
+                        in_source = source.clone()
+                        in_D_source = D_source.clone()
+                        in_D_source[:, :, mask != 3, :] = 0
+                        
+                        epi = np.where(mask == 3)[0]
+                        selected_idx = np.arange(0, epi.shape[0], sparse)
+                        if sparse > 0:
+                            selected_idx = np.delete(np.arange(0, epi.shape[0]), selected_idx)
+                        
+                        selected_epi = epi[selected_idx]
+                        in_D_source[:, :, selected_epi, :] = 0
+                    else:
+                        in_D_source = D_source
 
-                    physics_vars, statistic_vars = model.personalization(eval_source, data_name, label, eval_label, D_source, D_label)
+                    physics_vars, statistic_vars = model.personalization(eval_source, data_name, label, eval_label, in_D_source, D_label)
                 
                 if loss_func == 'dmm_loss':
                     x_q, x_p = physics_vars
