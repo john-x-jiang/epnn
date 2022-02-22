@@ -26,7 +26,7 @@ def evaluate_epoch(model, data_loaders, metrics, exp_dir, hparams, data_tag, eva
     omit = eval_config['omit']
     k_shot = eval_config.get('k_shot')
     changable = eval_config.get('changable')
-    sparse = train_config.get('sparse')
+    sparse = eval_config.get('sparse')
     model.eval()
     n_steps = 0
     mses = {}
@@ -174,7 +174,7 @@ def personalize_epoch(model, eval_data_loaders, pred_data_loaders, metrics, exp_
     omit = eval_config['omit']
     k_shot = eval_config.get('k_shot')
     changable = eval_config.get('changable')
-    sparse = train_config.get('sparse')
+    sparse = eval_config.get('sparse')
     model.eval()
     n_steps = 0
     mses = {}
