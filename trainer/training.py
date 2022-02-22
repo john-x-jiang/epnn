@@ -227,8 +227,8 @@ def train_epoch(model, epoch, loss, optimizer, data_loaders, hparams):
                     in_D_source[:, :, mask != 3, :] = 0
                     
                     epi = np.where(mask == 3)[0]
-                    selected_idx = np.arange(0, epi.shape[0], sparse)
-                    if sparse > 0:
+                    selected_idx = np.arange(0, epi.shape[0], np.abs(sparse))
+                    if sparse > 1:
                         selected_idx = np.delete(np.arange(0, epi.shape[0]), selected_idx)
                     
                     selected_epi = epi[selected_idx]
@@ -380,7 +380,7 @@ def valid_epoch(model, epoch, loss, data_loaders, hparams):
                         in_D_source[:, :, mask != 3, :] = 0
                         
                         epi = np.where(mask == 3)[0]
-                        selected_idx = np.arange(0, epi.shape[0], sparse)
+                        selected_idx = np.arange(0, epi.shape[0], np.abs(sparse))
                         if sparse > 0:
                             selected_idx = np.delete(np.arange(0, epi.shape[0]), selected_idx)
                         

@@ -87,7 +87,7 @@ def evaluate_epoch(model, data_loaders, metrics, exp_dir, hparams, data_tag, eva
                         in_D_source[:, :, mask != 3, :] = 0
                         
                         epi = np.where(mask == 3)[0]
-                        selected_idx = np.arange(0, epi.shape[0], sparse)
+                        selected_idx = np.arange(0, epi.shape[0], np.abs(sparse))
                         if sparse > 0:
                             selected_idx = np.delete(np.arange(0, epi.shape[0]), selected_idx)
                         
@@ -252,7 +252,7 @@ def personalize_epoch(model, eval_data_loaders, pred_data_loaders, metrics, exp_
                         in_D_source[:, :, mask != 3, :] = 0
                         
                         epi = np.where(mask == 3)[0]
-                        selected_idx = np.arange(0, epi.shape[0], sparse)
+                        selected_idx = np.arange(0, epi.shape[0], np.abs(sparse))
                         if sparse > 0:
                             selected_idx = np.delete(np.arange(0, epi.shape[0]), selected_idx)
                         
