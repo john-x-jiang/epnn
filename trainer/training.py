@@ -228,7 +228,7 @@ def train_epoch(model, epoch, loss, optimizer, data_loaders, hparams):
                     
                     epi = np.where(mask == 3)[0]
                     selected_idx = np.arange(0, epi.shape[0], np.abs(sparse))
-                    if sparse > 1:
+                    if sparse > 0:
                         selected_idx = np.delete(np.arange(0, epi.shape[0]), selected_idx)
                     
                     selected_epi = epi[selected_idx]
