@@ -253,9 +253,13 @@ class HeartEpisodicDataset(Dataset):
             self.x_spt[scar_id] = self.data[samples[spt_idx], :]
             self.y_spt[scar_id] = self.label[samples[spt_idx], :]
 
-            qry_idx = sample_idx[self.k_shot:]
-            self.x_qry.append(self.data[samples[qry_idx], :])
-            self.y_qry.append(self.label[samples[qry_idx], :])
+            if self.is_train == 'train':
+                qry_idx = sample_idx[self.k_shot:]
+                self.x_qry.append(self.data[samples[qry_idx], :])
+                self.y_qry.append(self.label[samples[qry_idx], :])
+            else:
+                self.x_qry.append(self.data[samples, :])
+                self.y_qry.append(self.label[samples, :])
         
         self.x_qry = torch.cat(self.x_qry, dim=0)
         self.y_qry = torch.cat(self.y_qry, dim=0)
