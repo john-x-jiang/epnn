@@ -24,6 +24,7 @@ def evaluate_epoch(model, data_loaders, metrics, exp_dir, hparams, data_tag, eva
     torso_len = eval_config['torso_len']
     signal_source = eval_config['signal_source']
     omit = eval_config['omit']
+    window = eval_config.get('window')
     k_shot = eval_config.get('k_shot')
     changable = eval_config.get('changable')
     sparse = eval_config.get('sparse')
@@ -47,6 +48,9 @@ def evaluate_epoch(model, data_loaders, metrics, exp_dir, hparams, data_tag, eva
                 signal = signal.to(device)
                 label = label.to(device)
 
+                if window is not None:
+                    signal = signal[:, :, :window]
+
                 x = signal[:, :-torso_len, omit:]
                 y = signal[:, -torso_len:, omit:]
 
@@ -62,6 +66,9 @@ def evaluate_epoch(model, data_loaders, metrics, exp_dir, hparams, data_tag, eva
                     D_label = data.D_label
                     D = D.to(device)
                     D_label = D_label.to(device)
+
+                    if window is not None:
+                        D = D[:, :, :window]
 
                     N, M, T = signal.shape
                     D = D.view(N, -1, M ,T)
@@ -172,6 +179,7 @@ def personalize_epoch(model, eval_data_loaders, pred_data_loaders, metrics, exp_
     torso_len = eval_config['torso_len']
     signal_source = eval_config['signal_source']
     omit = eval_config['omit']
+    window = eval_config.get('window')
     k_shot = eval_config.get('k_shot')
     changable = eval_config.get('changable')
     sparse = eval_config.get('sparse')
@@ -204,6 +212,9 @@ def personalize_epoch(model, eval_data_loaders, pred_data_loaders, metrics, exp_
                 signal = signal.to(device)
                 label = label.to(device)
 
+                if window is not None:
+                    signal = signal[:, :, :window]
+
                 x = signal[:, :-torso_len, omit:]
                 y = signal[:, -torso_len:, omit:]
 
@@ -228,6 +239,9 @@ def personalize_epoch(model, eval_data_loaders, pred_data_loaders, metrics, exp_
                     D_label = eval_data.D_label
                     D = D.to(device)
                     D_label = D_label.to(device)
+
+                    if window is not None:
+                        D = D[:, :, :window]
 
                     N, M, T = signal.shape
                     D = D.view(N, -1, M ,T)

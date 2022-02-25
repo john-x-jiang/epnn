@@ -149,6 +149,7 @@ def train_epoch(model, epoch, loss, optimizer, data_loaders, hparams):
     torso_len = train_config['torso_len']
     signal_source = train_config['signal_source']
     omit = train_config['omit']
+    window = train_config.get('window')
     k_shot = train_config.get('k_shot')
     changable = train_config.get('changable')
     sparse = train_config.get('sparse')
@@ -171,6 +172,9 @@ def train_epoch(model, epoch, loss, optimizer, data_loaders, hparams):
             signal, label = data.x, data.y
             signal = signal.to(device)
             label = label.to(device)
+
+            if window is not None:
+                signal = signal[:, :, :window]
 
             x = signal[:, :-torso_len, omit:]
             y = signal[:, -torso_len:, omit:]
@@ -203,8 +207,12 @@ def train_epoch(model, epoch, loss, optimizer, data_loaders, hparams):
                 D = D.to(device)
                 D_label = D_label.to(device)
 
+                if window is not None:
+                    D = D[:, :, :window]
+
                 N, M, T = signal.shape
                 D = D.view(N, -1, M ,T)
+
                 D_x = D[:, :, :-torso_len, omit:]
                 D_y = D[:, :, -torso_len:, omit:]
 
@@ -230,7 +238,7 @@ def train_epoch(model, epoch, loss, optimizer, data_loaders, hparams):
                     selected_idx = np.arange(0, epi.shape[0], np.abs(sparse))
                     if sparse > 0:
                         selected_idx = np.delete(np.arange(0, epi.shape[0]), selected_idx)
-                    
+
                     selected_epi = epi[selected_idx]
                     in_source[:, selected_epi, :] = 0
                     in_D_source[:, :, selected_epi, :] = 0
@@ -307,6 +315,7 @@ def valid_epoch(model, epoch, loss, data_loaders, hparams):
     torso_len = train_config['torso_len']
     signal_source = train_config['signal_source']
     omit = train_config['omit']
+    window = train_config.get('window')
     k_shot = train_config.get('k_shot')
     changable = train_config.get('changable')
     sparse = train_config.get('sparse')
@@ -330,6 +339,9 @@ def valid_epoch(model, epoch, loss, data_loaders, hparams):
                 signal = signal.to(device)
                 label = label.to(device)
 
+                if window is not None:
+                    signal = signal[:, :, :window]
+                
                 x = signal[:, :-torso_len, omit:]
                 y = signal[:, -torso_len:, omit:]
 
@@ -355,6 +367,9 @@ def valid_epoch(model, epoch, loss, data_loaders, hparams):
                     D_label = data.D_label
                     D = D.to(device)
                     D_label = D_label.to(device)
+
+                    if window is not None:
+                        D = D[:, :, :window]
 
                     N, M, T = signal.shape
                     D = D.view(N, -1, M ,T)
