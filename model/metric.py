@@ -9,6 +9,7 @@ def mse(output, target):
     mse = F.mse_loss(output, target, reduction='none')
     return mse
 
+
 def tcc(u, x):
     m, n, w = u.shape
     res = []
@@ -45,3 +46,27 @@ def scc(u, x):
         res.append(correlation_sum)
     res = np.array(res)
     return res
+
+
+def dcc(u, x):
+    m, n, w = u.shape
+    dice_cc = []
+
+    # u_apd = np.sum(u > 0.03, axis=2)
+    # u_scar = u_apd > 0.25 * w
+
+    # x_apd = np.sum(x > 0.04, axis=2)
+    # x_scar = x_apd > 0.25 * w
+
+    for i in range(m):
+        u_row = u[i, :, 50]
+        x_row = x[i, :, 50]
+
+        u_scar_idx = np.where(u_row >= 0.04)[0]
+        x_scar_idx = np.where(x_row >= 0.04)[0]
+
+        intersect = set(u_scar_idx) & set(x_scar_idx)
+        dice_cc.append(2 * len(intersect) / float(len(set(u_scar_idx)) + len(set(x_scar_idx))))
+
+    dice_cc = np.array(dice_cc)
+    return dice_cc
