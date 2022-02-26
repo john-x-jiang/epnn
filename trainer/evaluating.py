@@ -33,6 +33,7 @@ def evaluate_epoch(model, data_loaders, metrics, exp_dir, hparams, data_tag, eva
     mses = {}
     tccs = {}
     sccs = {}
+    dccs = {}
 
     q_recons = {}
     all_xs = {}
@@ -156,6 +157,15 @@ def evaluate_epoch(model, data_loaders, metrics, exp_dir, hparams, data_tag, eva
                             sccs[data_name] = scc
                         else:
                             sccs[data_name] = np.concatenate((sccs[data_name], scc), axis=0)
+                    if met.__name__ == 'dcc':
+                        if type(x) == torch.Tensor or type(x_) == torch.Tensor:
+                            x = tensor2np(x)
+                            x_ = tensor2np(x_)
+                        dcc = met(x_, x)
+                        if idx == 0:
+                            dccs[data_name] = dcc
+                        else:
+                            dccs[data_name] = np.concatenate((dccs[data_name], dcc), axis=0)
     
     for met in metrics:
         if met.__name__ == 'mse':
@@ -164,6 +174,8 @@ def evaluate_epoch(model, data_loaders, metrics, exp_dir, hparams, data_tag, eva
             print_results(exp_dir, 'tcc', tccs)
         if met.__name__ == 'scc':
             print_results(exp_dir, 'scc', sccs)
+        if met.__name__ == 'dcc':
+            print_results(exp_dir, 'dcc', dccs)
     
     save_result(exp_dir, q_recons, all_xs, all_labels, data_tag)
 
@@ -188,6 +200,7 @@ def personalize_epoch(model, eval_data_loaders, pred_data_loaders, metrics, exp_
     mses = {}
     tccs = {}
     sccs = {}
+    dccs = {}
 
     q_recons = {}
     all_xs = {}
@@ -326,6 +339,15 @@ def personalize_epoch(model, eval_data_loaders, pred_data_loaders, metrics, exp_
                             sccs[data_name] = scc
                         else:
                             sccs[data_name] = np.concatenate((sccs[data_name], scc), axis=0)
+                    if met.__name__ == 'dcc':
+                        if type(x) == torch.Tensor or type(x_) == torch.Tensor:
+                            x = tensor2np(x)
+                            x_ = tensor2np(x_)
+                        dcc = met(x_, x)
+                        if idx == 0:
+                            dccs[data_name] = dcc
+                        else:
+                            dccs[data_name] = np.concatenate((dccs[data_name], dcc), axis=0)
 
     for met in metrics:
         if met.__name__ == 'mse':
@@ -334,6 +356,8 @@ def personalize_epoch(model, eval_data_loaders, pred_data_loaders, metrics, exp_
             print_results(exp_dir, 'tcc', tccs)
         if met.__name__ == 'scc':
             print_results(exp_dir, 'scc', sccs)
+        if met.__name__ == 'dcc':
+            print_results(exp_dir, 'dcc', dccs)
     
     save_result(exp_dir, q_recons, all_xs, all_labels, pred_tag, pred=True)
 
