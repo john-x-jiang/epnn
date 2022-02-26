@@ -200,7 +200,21 @@ def train_epoch(model, epoch, loss, optimizer, data_loaders, hparams):
                 r2 = 0
             
             if k_shot is None:
-                physics_vars, statistic_vars = model(source, data_name, label)
+                if sparse is not None:
+                    mask = data.mask[0]
+                    in_source = source.clone()
+                    in_source[:, mask != 3, :] = 0
+                    
+                    epi = np.where(mask == 3)[0]
+                    selected_idx = np.arange(0, epi.shape[0], np.abs(sparse))
+                    if sparse > 0:
+                        selected_idx = np.delete(np.arange(0, epi.shape[0]), selected_idx)
+
+                    selected_epi = epi[selected_idx]
+                    in_source[:, selected_epi, :] = 0
+                else:
+                    in_source = source
+                physics_vars, statistic_vars = model(in_source, data_name, label)
             else:
                 D = data.D
                 D_label = data.D_label
@@ -361,7 +375,21 @@ def valid_epoch(model, epoch, loss, data_loaders, hparams):
                     r2 = 0
                 
                 if k_shot is None:
-                    physics_vars, statistic_vars = model(source, data_name, label)
+                    if sparse is not None:
+                        mask = data.mask[0]
+                        in_source = source.clone()
+                        in_source[:, mask != 3, :] = 0
+                        
+                        epi = np.where(mask == 3)[0]
+                        selected_idx = np.arange(0, epi.shape[0], np.abs(sparse))
+                        if sparse > 0:
+                            selected_idx = np.delete(np.arange(0, epi.shape[0]), selected_idx)
+                        
+                        selected_epi = epi[selected_idx]
+                        in_source[:, selected_epi, :] = 0
+                    else:
+                        in_source = source
+                    physics_vars, statistic_vars = model(in_source, data_name, label)
                 else:
                     D = data.D
                     D_label = data.D_label
