@@ -42,6 +42,7 @@ class HeartGraphDataset(Dataset):
         matFiles = scipy.io.loadmat(self.data_path, squeeze_me=True, struct_as_record=False)
         dataset = matFiles['params']
         label = matFiles['label']
+        mask = matFiles['inf_idx']
 
         dataset = dataset.transpose(2, 0, 1)
 
@@ -62,6 +63,7 @@ class HeartGraphDataset(Dataset):
         self.label = torch.from_numpy(label[index])
         self.data = torch.from_numpy(dataset[index, :, :]).float()
         # self.corMfree = corMfree
+        self.mask = mask
         self.heart_name = data_name
         print('final data size: {}'.format(self.data.shape[0]))
 
@@ -71,10 +73,16 @@ class HeartGraphDataset(Dataset):
     def __getitem__(self, idx):
         x = self.data[[idx], :, :]
         y = self.label[[idx]]
-        sample = Data(
+        # sample = Data(
+        #     x=x,
+        #     y=y,
+        #     pos=self.heart_name
+        # )
+        sample = DataWithDomain(
             x=x,
             y=y,
-            pos=self.heart_name
+            pos=self.heart_name,
+            mask=self.mask
         )
         return sample
 

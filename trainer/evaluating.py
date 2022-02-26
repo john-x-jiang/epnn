@@ -61,6 +61,20 @@ def evaluate_epoch(model, data_loaders, metrics, exp_dir, hparams, data_tag, eva
                     source = y
 
                 if k_shot is None:
+                    if sparse is not None:
+                        mask = data.mask[0]
+                        in_source = source.clone()
+                        in_source[:, mask != 3, :] = 0
+                        
+                        epi = np.where(mask == 3)[0]
+                        selected_idx = np.arange(0, epi.shape[0], np.abs(sparse))
+                        if sparse > 0:
+                            selected_idx = np.delete(np.arange(0, epi.shape[0]), selected_idx)
+                        
+                        selected_epi = epi[selected_idx]
+                        in_source[:, selected_epi, :] = 0
+                    else:
+                        in_source = source
                     physics_vars, statistic_vars = model(source, data_name, label)
                 else:
                     D = data.D
@@ -235,6 +249,9 @@ def personalize_epoch(model, eval_data_loaders, pred_data_loaders, metrics, exp_
                 eval_signal = eval_signal.to(device)
                 eval_label = eval_label.to(device)
 
+                if window is not None:
+                    eval_signal = eval_signal[:, :, :window]
+
                 eval_x = eval_signal[:, :-torso_len, omit:]
                 eval_y = eval_signal[:, -torso_len:, omit:]
 
@@ -246,7 +263,21 @@ def personalize_epoch(model, eval_data_loaders, pred_data_loaders, metrics, exp_
                     eval_source = eval_y
 
                 if k_shot is None:
-                    physics_vars, statistic_vars = model.personalization(source, eval_source, data_name, label, eval_label)
+                    if sparse is not None:
+                        mask = data.mask[0]
+                        in_source = source.clone()
+                        in_source[:, mask != 3, :] = 0
+                        
+                        epi = np.where(mask == 3)[0]
+                        selected_idx = np.arange(0, epi.shape[0], np.abs(sparse))
+                        if sparse > 0:
+                            selected_idx = np.delete(np.arange(0, epi.shape[0]), selected_idx)
+                        
+                        selected_epi = epi[selected_idx]
+                        in_source[:, selected_epi, :] = 0
+                    else:
+                        in_source = source
+                    physics_vars, statistic_vars = model.personalization(eval_source, data_name, label, eval_label)
                 else:
                     D = eval_data.D
                     D_label = eval_data.D_label
