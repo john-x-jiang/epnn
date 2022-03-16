@@ -28,6 +28,7 @@ def evaluate_epoch(model, data_loaders, metrics, exp_dir, hparams, data_tag, eva
     k_shot = eval_config.get('k_shot')
     changable = eval_config.get('changable')
     sparse = eval_config.get('sparse')
+    data_scaler = eval_config.get('data_scaler')
     model.eval()
     n_steps = 0
     mses = {}
@@ -51,6 +52,9 @@ def evaluate_epoch(model, data_loaders, metrics, exp_dir, hparams, data_tag, eva
 
                 if window is not None:
                     signal = signal[:, :, :window]
+                
+                if data_scaler is not None:
+                    signal = data_scaler * signal
 
                 x = signal[:, :-torso_len, omit:]
                 y = signal[:, -torso_len:, omit:]
@@ -84,6 +88,9 @@ def evaluate_epoch(model, data_loaders, metrics, exp_dir, hparams, data_tag, eva
 
                     if window is not None:
                         D = D[:, :, :window]
+                    
+                    if data_scaler is not None:
+                        D = D * data_scaler
 
                     N, M, T = signal.shape
                     D = D.view(N, -1, M ,T)
@@ -209,8 +216,9 @@ def personalize_epoch(model, eval_data_loaders, pred_data_loaders, metrics, exp_
     k_shot = eval_config.get('k_shot')
     changable = eval_config.get('changable')
     sparse = eval_config.get('sparse')
+    data_scaler = eval_config.get('data_scaler')
     model.eval()
-    n_steps = 0
+    n_data = 0
     mses = {}
     tccs = {}
     sccs = {}
@@ -225,7 +233,7 @@ def personalize_epoch(model, eval_data_loaders, pred_data_loaders, metrics, exp_
         for data_name in data_names:
             data_loader = pred_data_loaders[data_name]
             len_epoch = len(data_loader)
-
+            n_data += len_epoch * data_loader.batch_size
             data_iterator = iter(eval_data_loaders[data_name])
             for idx, data in enumerate(data_loader):
 
@@ -241,6 +249,9 @@ def personalize_epoch(model, eval_data_loaders, pred_data_loaders, metrics, exp_
 
                 if window is not None:
                     signal = signal[:, :, :window]
+                
+                if data_scaler is not None:
+                    signal = data_scaler * signal
 
                 x = signal[:, :-torso_len, omit:]
                 y = signal[:, -torso_len:, omit:]
@@ -251,6 +262,9 @@ def personalize_epoch(model, eval_data_loaders, pred_data_loaders, metrics, exp_
 
                 if window is not None:
                     eval_signal = eval_signal[:, :, :window]
+                
+                if data_scaler is not None:
+                    eval_signal = data_scaler * eval_signal
 
                 eval_x = eval_signal[:, :-torso_len, omit:]
                 eval_y = eval_signal[:, -torso_len:, omit:]
@@ -286,6 +300,9 @@ def personalize_epoch(model, eval_data_loaders, pred_data_loaders, metrics, exp_
 
                     if window is not None:
                         D = D[:, :, :window]
+                    
+                    if data_scaler is not None:
+                        D = data_scaler * D
 
                     N, M, T = signal.shape
                     D = D.view(N, -1, M ,T)
@@ -389,6 +406,9 @@ def personalize_epoch(model, eval_data_loaders, pred_data_loaders, metrics, exp_
             print_results(exp_dir, 'scc', sccs)
         if met.__name__ == 'dcc':
             print_results(exp_dir, 'dcc', dccs)
+    
+    with open(os.path.join(exp_dir, 'data/metric.txt'), 'a+') as f:
+        f.write(summary + '\n')
     
     save_result(exp_dir, q_recons, all_xs, all_labels, pred_tag, pred=True)
 
