@@ -3,6 +3,7 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 from torch.distributions import Normal
+from skimage.filters import threshold_otsu
 
 
 def mse(output, target):
@@ -62,8 +63,12 @@ def dcc(u, x):
         u_row = u[i, :, 50]
         x_row = x[i, :, 50]
 
-        u_scar_idx = np.where(u_row >= 0.04)[0]
-        x_scar_idx = np.where(x_row >= 0.04)[0]
+        # u_scar_idx = np.where(u_row >= 0.04)[0]
+        # x_scar_idx = np.where(x_row >= 0.04)[0]
+        thresh_u = threshold_otsu(u_row)
+        u_scar_idx = np.where(u_row >= thresh_u)[0]
+        thresh_x = threshold_otsu(x_row)
+        x_scar_idx = np.where(x_row >= thresh_x)[0]
 
         intersect = set(u_scar_idx) & set(x_scar_idx)
         dice_cc.append(2 * len(intersect) / float(len(set(u_scar_idx)) + len(set(x_scar_idx))))

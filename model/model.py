@@ -3,6 +3,7 @@ import torch.nn as nn
 import numpy as np
 from model.modules import *
 from abc import abstractmethod
+import time
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -564,6 +565,7 @@ class MetaDynamics(BaseModel):
     
     def personalization(self, eval_x, heart_name, label, eval_label, D, D_label):        
         # q(c | D)
+        ts = time.time()
         N, V, T = eval_x.shape
         eval_y = one_hot_label(eval_label[:, 2] - 1, eval_x)
         # z_x = self.signal_encoder(eval_x, heart_name, eval_y)
@@ -585,10 +587,15 @@ class MetaDynamics(BaseModel):
         # q(z)
         y = one_hot_label(label[:, 2] - 1, eval_x)
         z_0 = self.get_latent_initial(y, heart_name)
+        te = time.time()
+        print('Encoder time = {}'.format((te - ts) / 60))
 
         # p(x | z, c)
+        ts = time.time()
         z = self.time_modeling(T, z_0, z_c)
         x = self.decoder(z, heart_name)
+        te = time.time()
+        print('Decoder time = {}'.format((te - ts) / 60))
         
         return (x, None), (mu_c, logvar_c, None, None)
 
