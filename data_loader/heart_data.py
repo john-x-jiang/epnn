@@ -239,7 +239,8 @@ class HeartEpisodicDataset(Dataset):
         scar = y[:, 1].numpy()[0]
         D_x = self.x_spt[scar]
         D_y = self.y_spt[scar]
-        D_y = D_y.view(1, self.k_shot, -1)
+        num_sample = min(len(self.scar_idx[scar]), self.k_shot)
+        D_y = D_y.view(1, num_sample, -1)
 
         sample = DataWithDomain(
             x=x,
@@ -256,10 +257,14 @@ class HeartEpisodicDataset(Dataset):
         self.x_qry, self.y_qry = [], []
         for scar_id, samples in self.scar_idx.items():
             sample_idx = np.arange(0, len(samples))
-            np.random.shuffle(sample_idx)
-            spt_idx = np.sort(sample_idx[0:self.k_shot])
-            self.x_spt[scar_id] = self.data[samples[spt_idx], :]
-            self.y_spt[scar_id] = self.label[samples[spt_idx], :]
+            if len(samples) < self.k_shot:
+                self.x_spt[scar_id] = self.data[samples, :]
+                self.y_spt[scar_id] = self.label[samples, :]
+            else:
+                np.random.shuffle(sample_idx)
+                spt_idx = np.sort(sample_idx[0:self.k_shot])
+                self.x_spt[scar_id] = self.data[samples[spt_idx], :]
+                self.y_spt[scar_id] = self.label[samples[spt_idx], :]
 
             if self.is_train == 'train':
                 qry_idx = sample_idx[self.k_shot:]

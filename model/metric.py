@@ -63,8 +63,6 @@ def dcc(u, x):
         u_row = u[i, :, 50]
         x_row = x[i, :, 50]
 
-        # u_scar_idx = np.where(u_row >= 0.04)[0]
-        # x_scar_idx = np.where(x_row >= 0.04)[0]
         thresh_u = threshold_otsu(u_row)
         u_scar_idx = np.where(u_row >= thresh_u)[0]
         thresh_x = threshold_otsu(x_row)
