@@ -26,4 +26,4 @@
     ```bash
    python main.py --config demo --stage 0
    ```
-10. Check [here](https://drive.google.com/drive/folders/1Nd91ShilxjPzOZazUO_pIsD3XvgLb7bR?usp=sharing) for data.
+10. Check [here](https://drive.google.com/drive/folders/1j3IkXeqSCI0BJGf1FUD2KBQ0e-0LbhkP?usp=sharing) for data.
