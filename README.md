@@ -11,7 +11,19 @@
    ```bash
    python main.py --config demo --stage 2
    ```
-7. To make graphs based on the pre-defined geometry, run the following command:
+7. To perform meta-testing on the model, run the following command:
+   ```bash
+   # i = 1, 2, 3, 4, 5, 6
+   # j = 1, 2, 3
+   python main.py --config demo --stage 3 --eval spt<i>set<j> --pred qry<i>
+   ```
+8. Clinical task:
+   ```bash
+   # i = 1, 2, 3, 4
+   python main.py --config demo --stage 3 --eval real_spt<i> --pred real_qry<i>
+   ```
+9. To make graphs based on the pre-defined geometry, run the following command:
     ```bash
    python main.py --config demo --stage 0
    ```
+10. Check [here](https://drive.google.com/drive/folders/1Nd91ShilxjPzOZazUO_pIsD3XvgLb7bR?usp=sharing) for data.

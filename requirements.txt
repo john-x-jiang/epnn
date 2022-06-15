@@ -4,6 +4,5 @@ matplotlib
 scikit-learn
 scipy
 tqdm
-torch
 torchdiffeq
 ipdb
