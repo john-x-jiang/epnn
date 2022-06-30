@@ -725,6 +725,106 @@ class MetaDynamics_Baseline(BaseModel):
         return (x, None), (None, None, None, None)
 
 
+class BaseDynamics(BaseModel):
+    def __init__(self,
+                 num_channel,
+                 latent_dim,
+                 obs_dim,
+                 rnn_type,
+                 target_in=False):
+        super().__init__()
+        self.nf = num_channel
+        self.latent_dim = latent_dim
+        self.obs_dim = obs_dim
+        self.rnn_type = rnn_type
+        self.target_in = target_in
+
+        # encoder
+        self.signal_encoder = Encoder(num_channel, latent_dim, cond=True)
+        self.condition_encoder = Encoder(num_channel, latent_dim)
+
+        # initialization
+        self.initial = nn.Linear(latent_dim, latent_dim)
+
+        # time modeling
+        self.propagation = Transition_NoDomain(latent_dim, latent_dim, stochastic=False)
+
+        # decoder
+        self.decoder = Decoder(num_channel, latent_dim)
+
+        self.bg = dict()
+        self.bg1 = dict()
+        self.bg2 = dict()
+        self.bg3 = dict()
+        self.bg4 = dict()
+
+    def setup(self, heart_name, data_path, batch_size, ecgi, graph_method):
+        params = get_params(data_path, heart_name, batch_size, ecgi, graph_method)
+        self.bg[heart_name] = params["bg"]
+        self.bg1[heart_name] = params["bg1"]
+        self.bg2[heart_name] = params["bg2"]
+        self.bg3[heart_name] = params["bg3"]
+        self.bg4[heart_name] = params["bg4"]
+        
+        self.signal_encoder.setup(heart_name, params)
+        self.condition_encoder.setup(heart_name, params)
+        self.decoder.setup(heart_name, params)
+    
+    def get_latent_initial(self, y, heart_name):
+        N, V, T = y.shape
+        y = y[:, :, 0].view(N, V, 1)
+        z_0 = self.condition_encoder(y, heart_name)
+        z_0 = torch.squeeze(z_0)
+        z_0 = self.initial(z_0)
+        
+        return z_0
+    
+    def time_modeling(self, T, z_0):
+        N, V, C = z_0.shape
+
+        z_prev = z_0
+        z = []
+        for i in range(1, T):
+            z_t = self.propagation(z_prev)
+            z_prev = z_t
+            z_t = z_t.view(1, N, V, C)
+            z.append(z_t)
+        z = torch.cat(z, dim=0)
+        z_0 = z_0.view(1, N, V, C)
+        z = torch.cat([z_0, z], dim=0)
+        z = z.permute(1, 2, 3, 0).contiguous()
+
+        return z
+
+    def forward(self, x, heart_name, label):
+        # q(c | D)
+        N, V, T = x.shape
+        y = one_hot_label(label[:, 2] - 1, x)
+
+        # q(z)
+        z_0 = self.get_latent_initial(y, heart_name)
+
+        # p(x | z, c)
+        z = self.time_modeling(T, z_0)
+        x = self.decoder(z, heart_name)
+
+        return (x, None), (None, None, None, None)
+    
+    def personalization(self, eval_x, heart_name, label, eval_label):        
+        # q(c | D)
+        N, V, T = eval_x.shape
+
+        # q(z)
+        y = one_hot_label(label[:, 2] - 1, eval_x)
+        z_0 = self.get_latent_initial(y, heart_name)
+
+        # p(x | z, c)
+        z = self.time_modeling(T, z_0)
+        x = self.decoder(z, heart_name)
+        
+        return (x, None), (None, None, None, None)
+
+
 class ODEDisentangledDynamics(BaseModel):
     def __init__(self,
                  num_channel,
